@@ -1,8 +1,8 @@
 # AndyScript
 AndyScript for Stand GTA V mod menu
 
-Official Script Discord: https://discord.gg/9vzATnaM9c
-My Discord tag: Lancito01#0001
+Join the Discord (please)
+https://discord.gg/9vzATnaM9c
 
 To install, simply click "Download ZIP" and extract it under "Stand/Lua Scripts".
 
