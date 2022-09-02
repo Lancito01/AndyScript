@@ -2,11 +2,9 @@ script_version = "v0.0.9"
 util.require_natives(1651208000)
 util.keep_running()
 
-local lua_scripts_path = filesystem.scripts_dir()
-local store = lua_scripts_path .. "store"
+local store = filesystem.store_dir()
 local shortcut_path = store .. "/shortcuts.txt"
 local shortcut_open_file = io.open(shortcut_path, "r")
-
 
 local notif_prefix = "[AndyScript] "
 local og_toast = util.toast
