@@ -3,8 +3,8 @@ util.require_natives(1651208000)
 util.keep_running()
 
 local lua_scripts_path = filesystem.scripts_dir()
-local resources = lua_scripts_path .. "resources"
-local shortcut_path = resources .. "/shortcuts.txt"
+local store = lua_scripts_path .. "store"
+local shortcut_path = store .. "/shortcuts.txt"
 local shortcut_open_file = io.open(shortcut_path, "r")
 
 
@@ -228,8 +228,8 @@ function(state)
     end
     --To hide the buttons before you enable it
     if shortcut_status then
-        custom_shortcut_menu = menu.list(shortcut_menu, "Add a shortcut", {}, "Allows you to add custom shortcuts.")
-        remove_shortcut_menu = menu.list(shortcut_menu, "Remove a shortcut", {}, "Allows you to remove previously created shortcuts.")
+        custom_shortcut_menu = menu.list(shortcut_menu, "Add A Shortcut", {}, "Allows you to add custom shortcuts.")
+        remove_shortcut_menu = menu.list(shortcut_menu, "Remove A Shortcut", {}, "Allows you to remove previously created shortcuts.")
 
         --maker
         local shortcut_maker_title = menu.divider(custom_shortcut_menu, "Fill these in:")
