@@ -9,6 +9,7 @@ https://discord.gg/9vzATnaM9c
 - Andy's Shortcuts (create aliases for other commands, i.e. "dv" = "deletevehicle")
 - Give All Weapons After Joining A Session
 - Heal ped to max health (only health, no armor)
+- ... and more!
 
 To install, simply click "Download ZIP" and extract it under "Stand/Lua Scripts".
 
