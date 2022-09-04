@@ -226,7 +226,6 @@ local function write_to_shortcut_file(filehandle)
                 filehandle:write(value[4])
                 filehandle:write("\n")
             else
-                util.toast(table.concat(value[4]))
                 filehandle:write(value[2])
                 filehandle:write(",")
                 filehandle:write(value[3])
