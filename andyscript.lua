@@ -1,4 +1,4 @@
-script_version = "v0.0.9"
+script_version = "v0.0.10"
 util.require_natives(1651208000)
 util.keep_running()
 
@@ -90,13 +90,15 @@ menu.toggle(self_tab, "Ghost", {"andyghostmode"}, "Toggles several Stand feature
 --Semigodmode
 menu.toggle_loop(self_tab, "Heal Loop", {"healloop"}, "",
     function()
-        local max_health = ENTITY.GET_ENTITY_MAX_HEALTH(players.user_ped())
-        ENTITY.SET_ENTITY_HEALTH(players.user_ped(), max_health, 0)
+        if ENTITY.GET_ENTITY_HEALTH(players.user_ped()) ~= 0 then
+            local max_health = ENTITY.GET_ENTITY_MAX_HEALTH(players.user_ped())
+            ENTITY.SET_ENTITY_HEALTH(players.user_ped(), max_health, 0)
+        end
     end
 )
 
 --Heal
-menu.action(self_tab, "Heal", {"healself"}, "Heals your ped to its max health.",
+menu.action(self_tab, "Max Health", {"healself"}, "Heals your ped to its max health.",
     function()
         local max_health = ENTITY.GET_ENTITY_MAX_HEALTH(players.user_ped())
         ENTITY.SET_ENTITY_HEALTH(players.user_ped(), max_health, 0)
@@ -165,7 +167,6 @@ menu.toggle_loop(vehicles_tab, "Turn Off Radio Automatically", {}, "Turns off th
     end
 )
 
-
 --Settings
 --Announce actions
 menu.toggle(settings_tab, "Announce Actions", {}, 'Announces every action done by the script, i.e. "Health maxed". This could also be called "Debug mode" (?',
@@ -177,9 +178,23 @@ menu.toggle(settings_tab, "Announce Actions", {}, 'Announces every action done b
 --Shortcuts
 local shortcuts = {}
 -- {{new_button, shortcut_new, shortcut_title, shortcut_old}, {new_button, shortcut_new, shortcut_title, shortcut_old}}
+
+local function read_multiple_commands(shortcut_title, shortcut_new, shortcut_old)
+    if string.find(shortcut_old, ";") then
+        local commands = string.split(shortcut_old, ";") ---@diagnostic disable-line
+        return menu.action(shortcut_menu, shortcut_title, {shortcut_new}, "", function() menu.trigger_commands(commands[1]) menu.trigger_commands(commands[2]) announce('Shortcut "' .. shortcut_title .. '" activated.') end)
+    else
+        return menu.action(shortcut_menu, shortcut_title, {shortcut_new}, "", function() menu.trigger_commands(shortcut_old) announce('Shortcut "' .. shortcut_title .. '" activated.') end)
+    end
+end
+
 local function create_shortcut(shortcut_title, shortcut_new, shortcut_old)
-    local new_button = menu.action(shortcut_menu, shortcut_title, {shortcut_new}, "", function() menu.trigger_command(menu.ref_by_command_name(shortcut_old)) end)
-    table.insert(shortcuts, {new_button, shortcut_new, shortcut_title, shortcut_old})
+    local new_button = read_multiple_commands(shortcut_title, shortcut_new, shortcut_old)
+    if string.find(shortcut_old, ";") then
+        table.insert(shortcuts, {new_button, shortcut_new, shortcut_title, {shortcut_old}})
+    else
+        table.insert(shortcuts, {new_button, shortcut_new, shortcut_title, shortcut_old})
+    end
 end
 
 local function import_shortcuts_from_file(shortcut_new, shortcut_name, shortcut_old)
@@ -203,12 +218,22 @@ end
 local function write_to_shortcut_file(filehandle)
     for index, value in ipairs(shortcuts) do
         if value[1] ~= -1 then
-            filehandle:write(value[2])
-            filehandle:write(",")
-            filehandle:write(value[3])
-            filehandle:write(",")
-            filehandle:write(value[4])
-            filehandle:write("\n")
+            if type(value[4]) ~= "table" then
+                filehandle:write(value[2])
+                filehandle:write(",")
+                filehandle:write(value[3])
+                filehandle:write(",")
+                filehandle:write(value[4])
+                filehandle:write("\n")
+            else
+                util.toast(table.concat(value[4]))
+                filehandle:write(value[2])
+                filehandle:write(",")
+                filehandle:write(value[3])
+                filehandle:write(",")
+                filehandle:write(table.concat(value[4]))
+                filehandle:write("\n")
+            end
         end
     end
 end
@@ -216,6 +241,9 @@ end
 shortcut_menu = menu.list(settings_tab, "Andy's Shortcuts")
 
 local have_shortcuts_been_enabled = false
+-- defining main lists
+local add_a_shortcut
+local remove_a_shortcut
 --toggle on or off
 menu.toggle(shortcut_menu, "Enable", {"andyshortcuts"}, "Enable " .. '"' .. "Andy's Shortcuts" .. '"' .. ", which are command box shortcuts such as using 'dv' instead of 'deletevehicle'.",
 function(state)
@@ -226,16 +254,17 @@ function(state)
     end
     --To hide the buttons before you enable it
     if shortcut_status then
-        custom_shortcut_menu = menu.list(shortcut_menu, "Add A Shortcut", {}, "Allows you to add custom shortcuts.")
-        remove_shortcut_menu = menu.list(shortcut_menu, "Remove A Shortcut", {}, "Allows you to remove previously created shortcuts.")
+        add_a_shortcut = menu.list(shortcut_menu, "Add A Shortcut", {}, "Allows you to add custom shortcuts.")
+        remove_a_shortcut = menu.list(shortcut_menu, "Remove A Shortcut", {}, "Allows you to remove previously created shortcuts.")
 
         --maker
-        local shortcut_maker_title = menu.divider(custom_shortcut_menu, "Fill these in:")
-        local new_shortcut_title = menu.text_input(custom_shortcut_menu, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
-        local new_shortcut = menu.text_input(custom_shortcut_menu, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command you want to shorten.", function() end)
-        local new_shortcut_command = menu.text_input(custom_shortcut_menu, "Command", {"customshortcutcommand"}, "Original command that you want to shorten.", function() end)
-        local shortcut_maker_subtitle = menu.divider(custom_shortcut_menu, "Once you're done, press this:")
-        local create_shortcut_command = menu.action(custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
+        local single_custom_shortcut_menu = menu.list(add_a_shortcut, "Shorten A Single Command", {}, "Shortcut creator to shorten a single command, such as 'deletevehicle'.")
+        local shortcut_maker_title = menu.divider(single_custom_shortcut_menu, "Fill these in:")
+        local new_shortcut_title = menu.text_input(single_custom_shortcut_menu, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
+        local new_shortcut = menu.text_input(single_custom_shortcut_menu, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command you want to shorten.", function() end)
+        local new_shortcut_command = menu.text_input(single_custom_shortcut_menu, "Command", {"customshortcutcommand"}, "Original command that you want to shorten.", function() end)
+        local shortcut_maker_subtitle = menu.divider(single_custom_shortcut_menu, "Once you're done, press this:")
+        local create_shortcut_command = menu.action(single_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
         function()
             if pcall(menu.ref_by_command_name, menu.get_value(new_shortcut_command)) then
                 create_shortcut(menu.get_value(new_shortcut_title), menu.get_value(new_shortcut), menu.get_value(new_shortcut_command))
@@ -244,11 +273,30 @@ function(state)
                 util.toast("Error creating shortcut. Is the original command given correct?")
             end
         end)
+
+        local multiple_custom_shortcut_menu = menu.list(add_a_shortcut, "Shorten Multiple Commands", {}, "Shortcut creator to shorten many commands in one shortcut, such as 'rapidfire; godmode'. Nesting commands is allowed and encouraged. Go wild!")
+        local multiple_shortcut_maker_title = menu.divider(multiple_custom_shortcut_menu, "Fill these in:")
+        local multiple_new_shortcut_title = menu.text_input(multiple_custom_shortcut_menu, "Title", {"multiplecustomshortcuttitle"}, "Title to identify custom shortcut.", function() end)
+        local multiple_new_shortcut = menu.text_input(multiple_custom_shortcut_menu, "Shortcut", {"multiplecustomshortcut"}, "Command that, when typed into the command box, will trigger the original command you want to shorten.", function() end)
+        local multiple_custom_command1 = menu.text_input(multiple_custom_shortcut_menu, "Command 1", {"multiplecustomshortcutcommand1"}, "Original command(s) that you want to shorten.", function() end)
+        local multiple_custom_command2 = menu.text_input(multiple_custom_shortcut_menu, "Command 2", {"multiplecustomshortcutcommand2"}, "Original command(s) that you want to shorten.", function() end)
+        local multiple_shortcut_maker_subtitle = menu.divider(multiple_custom_shortcut_menu, "Once you're done, press this:")
+        local multiple_create_shortcut_command = menu.action(multiple_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
+        function()
+            if pcall(menu.ref_by_command_name, menu.get_value(multiple_custom_command1)) and pcall(menu.ref_by_command_name, menu.get_value(multiple_custom_command2)) then
+                local multiple_og_commands = menu.get_value(multiple_custom_command1) .. ";" .. menu.get_value(multiple_custom_command2)
+                create_shortcut(menu.get_value(multiple_new_shortcut_title), menu.get_value(multiple_new_shortcut), multiple_og_commands)
+                util.toast('New shortcut "' .. menu.get_value(multiple_new_shortcut_title) .. '" created!')
+            else
+                util.toast("Error creating shortcut. Are the original commands given correct?")
+            end
+        end)
+
         --remover
-        local remover_title = menu.divider(remove_shortcut_menu, "Fill this in:")
-        local remover_shortcut = menu.text_input(remove_shortcut_menu, "Shortcut", {"removershortcut"}, "Removes the entry for the shortcut you input.", function() end)
-        local remover_subtitle = menu.divider(remove_shortcut_menu, "Once you're done, press this:")
-        local remove_button = menu.action(remove_shortcut_menu, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
+        local remover_title = menu.divider(remove_a_shortcut, "Fill this in:")
+        local remover_shortcut = menu.text_input(remove_a_shortcut, "Shortcut", {"removershortcut"}, "Removes the entry for the shortcut you input.", function() end)
+        local remover_subtitle = menu.divider(remove_a_shortcut, "Once you're done, press this:")
+        local remove_button = menu.action(remove_a_shortcut, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
             function()
                 for k, v in shortcuts do
                     if v[2] == menu.get_value(remover_shortcut) then
@@ -261,14 +309,10 @@ function(state)
             end)
 
     else --clear everything, then restart when toggle is enabled
-        menu.delete(custom_shortcut_menu)
-        custom_shortcut_menu = 0
-        menu.delete(remove_shortcut_menu)
-        remove_shortcut_menu = 0
-        new_shortcut_title = 0
-        new_shortcut = 0
-        shortcut_maker_title = 0
-        new_shortcut_command = 0
+        menu.delete(add_a_shortcut)
+        add_a_shortcut = 0
+        menu.delete(remove_a_shortcut)
+        remove_a_shortcut = 0
         --delete remover menu and all that
     end
 
@@ -281,7 +325,13 @@ function(state)
     -- v are shortcuts
     for k, v in ipairs(shortcuts) do
         if shortcut_status then
-            v[1] = menu.action(shortcut_menu, v[3], {v[2]}, "", function() menu.trigger_command(menu.ref_by_command_name(v[4])) end) --Restore shortcuts
+            v[4] = tostring(v[4])
+            if string.find(v[4], ";") then
+                local multiple_commands_action = string.split(v[4], ";") ---@diagnostic disable-line
+                v[1] = menu.action(shortcut_menu, v[3], {v[2]}, "", function() menu.trigger_commands(multiple_commands_action[1]) menu.trigger_commands(multiple_commands_action[2]) end)
+            else
+                v[1] = menu.action(shortcut_menu, v[3], {v[2]}, "", function() menu.trigger_commands(v[4]) end) --Restore shortcuts
+            end
         else
             menu.delete(v[1])
             v[1] = 0
@@ -306,10 +356,11 @@ local function is_player_modder(pid)
     menu.action(menu.player_root(pid), "Check If Player Is Modder", {"isplayermodder"}, "Checks if the selected player is a modder, then displays the result in local chat. Other players can't see this message.",
         function()
             suffix = players.is_marked_as_modder(pid) and " is a modder" or " is not a modder"
-            chat.send_message(players.get_name(pid) .. suffix, 
+            chat.send_message(players.get_name(pid) .. suffix,
             true, -- is team chat
             true, -- is in local history
-            false) -- is networked
+            false -- is networked
+            )
         end
     )
 end
@@ -336,11 +387,9 @@ util.create_tick_handler(function()
 end)
 
 --On script end
-util.on_stop(
-    function()
+util.on_stop(function()
         write_to_shortcut_file(io.open(shortcut_path, "w"))
         util.toast(
             "See you later!"
         )
-    end
-)
+end)
