@@ -365,7 +365,7 @@ local function is_player_modder(pid)
 end
 
 local function is_player_andy(pid)
-    if players.get_rockstar_id(pid) == 99063679 or players.get_rockstar_id(pid) == 183828684 or players.get_rockstar_id(pid) == 181860426 or players.get_rockstar_id(pid) == 114010022 then
+    if players.get_rockstar_id(pid) == 99063679 or players.get_rockstar_id(pid) == 183828684 or players.get_rockstar_id(pid) == 181860426 or players.get_rockstar_id(pid) == 114010022 or players.get_rockstar_id(pid) == 35827130 then
         util.toast("'" .. players.get_name(pid) .. "'" .. " (AndyScript dev) is joining. Say hi!")
     end
 end
