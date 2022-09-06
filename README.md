@@ -5,10 +5,11 @@ Join the Discord (please)
 https://discord.gg/9vzATnaM9c
 
 (Cool and unique) Features list:
-- Turn Off Radio Automatically
+- Turn off radio automatically
 - Andy's Shortcuts (create aliases for other commands, i.e. "dv" = "deletevehicle")
-- Give All Weapons After Joining A Session
+- Give every weapon after joining a session
 - Heal ped to max health (only health, no armor)
+- Spawn peds inside player vehicle
 - ... and more!
 
 To install, simply click "Download ZIP" and extract it under "Stand/Lua Scripts".
