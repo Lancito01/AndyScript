@@ -1,4 +1,4 @@
-script_version = "v0.0.11"
+script_version = "v0.0.12"
 util.require_natives(1660775568)
 util.keep_running()
 
@@ -78,6 +78,7 @@ local self_tab = menu.list(menu.my_root(), "Self")
 local online_tab = menu.list(menu.my_root(), "Online")
 menu.action(menu.my_root(), "Players shortcut", {}, 'Takes you to "Players" list.', function() menu.trigger_command(menu.ref_by_path('Players')) end)
 local vehicles_tab = menu.list(menu.my_root(), "Vehicles")
+local world_tab = menu.list(menu.my_root(), "World")
 local settings_tab = menu.list(menu.my_root(), "Settings")
 menu.divider(menu.my_root(), "Information")
 local info_tab = menu.list(menu.my_root(), "About")
@@ -185,6 +186,57 @@ function()
 end
 )
 
+--Auto-flip vehicle
+menu.toggle_loop(vehicles_tab, "Auto-flip Vehicle", {}, "Automatically flips your car the right way if you land upside-down or sideways.", function()
+    local player_vehicle = get_vehicle_ped_is_in(players.user_ped(), false)
+    local rotation = CAM.GET_GAMEPLAY_CAM_ROT(2)
+    local heading = v3.getHeading(v3.new(rotation))
+    local vehicle_distance_to_ground = ENTITY.GET_ENTITY_HEIGHT_ABOVE_GROUND(player_vehicle)
+    local am_i_on_ground = vehicle_distance_to_ground < 2 --and true or false
+    if not VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(player_vehicle) and ENTITY.IS_ENTITY_UPSIDEDOWN(player_vehicle) and am_i_on_ground then
+        VEHICLE.SET_VEHICLE_ON_GROUND_PROPERLY(player_vehicle, 5.0)
+        ENTITY.SET_ENTITY_HEADING(player_vehicle, heading)
+    end
+end)
+
+--World
+--Change local gravity
+local gravity_tab_under_world = menu.list(world_tab, "Gravity", {}, "Changes world's gravity.")
+menu.toggle_loop(gravity_tab_under_world, "Toggle", {}, "Can be really annoying to other players. Recommended to use with friends to not ruin anyone elses fun. :)",
+    function()
+        local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+        if not is_gravity_toggled then
+            announce("Gravity set.")
+            is_gravity_toggled = true
+        end
+        if ENTITY.IS_ENTITY_AT_COORD(players.user_ped(), coords.x, coords.y, coords.z, 5.0, 5.0, 5.0, 0, 1, 0) then
+            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_vehicles_as_handles())
+            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_peds_as_handles())
+            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_objects_as_handles())
+            MISC.SET_GRAVITY_LEVEL(set_gravity_level)
+        end
+    end,
+    function()
+        is_gravity_toggled = false
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_vehicles_as_handles())
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_peds_as_handles())
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_objects_as_handles())
+        MISC.SET_GRAVITY_LEVEL(0)
+    end)
+menu.action_slider(gravity_tab_under_world, "Gravity Level", {}, "Changes gravity's intensity for objects around you. Toggle on with button above. (:", {"Low", "Very low", "Off"},
+function(int)
+    set_gravity_level = int
+end)
+
+menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mode. Can be really annoying to other players. Recommended to use with friends to not ruin anyone elses fun. :)",
+    function()
+        for i, veh in ipairs(entities.get_all_vehicles_as_handles()) do
+            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(veh)
+            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(veh, 1, 0.0, 10.0, 0.0, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
+        end
+    end
+)
+
 --Settings
 --Announce actions
 menu.toggle(settings_tab, "Announce Actions", {}, 'Announces every action done by the script, i.e. "Health maxed". This could also be called "Debug mode" (?',
@@ -281,12 +333,12 @@ function(state)
 
         --maker
         local single_custom_shortcut_menu = menu.list(add_a_shortcut, "Shorten A Single Command", {}, "Shortcut creator to shorten a single command, such as 'deletevehicle'.")
-        local shortcut_maker_title = menu.divider(single_custom_shortcut_menu, "Fill these in:")
+        --[[Maker title]] menu.divider(single_custom_shortcut_menu, "Fill these in:")
         local new_shortcut_title = menu.text_input(single_custom_shortcut_menu, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
         local new_shortcut = menu.text_input(single_custom_shortcut_menu, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command you want to shorten.", function() end)
         local new_shortcut_command = menu.text_input(single_custom_shortcut_menu, "Command", {"customshortcutcommand"}, "Original command that you want to shorten.", function() end)
-        local shortcut_maker_subtitle = menu.divider(single_custom_shortcut_menu, "Once you're done, press this:")
-        local create_shortcut_command = menu.action(single_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
+        --[[Maker button title]] menu.divider(single_custom_shortcut_menu, "Once you're done, press this:")
+        --[[Maker button]] menu.action(single_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
         function()
             if not pcall(menu.ref_by_command_name, menu.get_value(new_shortcut_command)) then
                 util.toast("Error creating shortcut. Is the original command given correct?")
@@ -319,10 +371,10 @@ function(state)
         end)
 
         --remover
-        local remover_title = menu.divider(remove_a_shortcut, "Fill this in:")
-        local remover_shortcut = menu.text_input(remove_a_shortcut, "Shortcut", {"removershortcut"}, "Removes the entry for the shortcut you input.", function() end)
-        local remover_subtitle = menu.divider(remove_a_shortcut, "Once you're done, press this:")
-        local remove_button = menu.action(remove_a_shortcut, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
+        --[[Remover title]] menu.divider(remove_a_shortcut, "Fill this in:")
+        local remover_shortcut = menu.text_input(remove_a_shortcut, "Shortcut", {"removershortcut"}, "Removes the entry belonging to the shortcut you input.", function() end)
+        --[[Remover subtitle]] menu.divider(remove_a_shortcut, "Once you're done, press this:")
+        --[[Remover button]] menu.action(remove_a_shortcut, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
             function()
                 if shortcuts[1] then
                     for k, v in shortcuts do
@@ -382,6 +434,25 @@ menu.hyperlink(info_tab, "GitHub", "https://gist.github.com/Lancito01/aa79a2d964
 menu.readonly(credits_under_info_tab, "Ren", "For helping me with majority of the code and with stupid questions. <3")
 
 --Player root
+--Remote horn boost
+local function remote_horn_boost(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, false)
+    if AUDIO.IS_HORN_ACTIVE(player_vehicle) then
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(player_vehicle)
+        ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 1.0, 0.0, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
+    end
+end
+
+local function remote_car_jump(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, false)
+    if AUDIO.IS_HORN_ACTIVE(player_vehicle) then
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(player_vehicle)
+        ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 0.0, 0.7, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
+    end
+end
+
 --Check for modder
 local function is_player_modder(pid)
     local suffix = players.is_marked_as_modder(pid) and " has set off modder detections." or " hasn't set off modder detections."
@@ -463,6 +534,8 @@ local function generate_features(pid)
                 fill_car_with_peds(car, player_ped, false)
             end
         end)
+    menu.toggle_loop(vehicles_player_root, "Remote Horn Boost", {}, "Boosts their car forward when they honk the horn. Can be combined with \"Remote Car Jump\".", function() remote_horn_boost(pid) end)
+    menu.toggle_loop(vehicles_player_root, "Remote Car Jump", {}, "Makes their car jump when they honk the horn. Can be combined with \"Remote Horn Boost\".", function() remote_car_jump(pid) end)
     menu.action(online_player_root, "Check If Player Is Modder", {"isplayermodder"}, "Checks if the selected player is a modder, then displays the result in local chat. Other players can't see this message.", function() is_player_modder(pid) end)
     --pipe_bomb(pid)
 end
@@ -484,8 +557,6 @@ end)
 
 --On script end
 util.on_stop(function()
-        write_to_shortcut_file(io.open(shortcut_path, "w"))
-        util.toast(
-            "See you later!"
-        )
+    write_to_shortcut_file(io.open(shortcut_path, "w"))
+    util.toast("See you later!")
 end)
