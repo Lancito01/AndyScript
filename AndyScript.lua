@@ -194,7 +194,9 @@ menu.toggle_loop(vehicles_tab, "Auto-flip Vehicle", {}, "Automatically flips you
     local vehicle_distance_to_ground = ENTITY.GET_ENTITY_HEIGHT_ABOVE_GROUND(player_vehicle)
     local am_i_on_ground = vehicle_distance_to_ground < 2 --and true or false
     if not VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(player_vehicle) and ENTITY.IS_ENTITY_UPSIDEDOWN(player_vehicle) and am_i_on_ground then
+        local speed = ENTITY.GET_ENTITY_SPEED_VECTOR(player_vehicle, true)
         VEHICLE.SET_VEHICLE_ON_GROUND_PROPERLY(player_vehicle, 5.0)
+        VEHICLE.SET_VEHICLE_FORWARD_SPEED(player_vehicle, speed.y)
         ENTITY.SET_ENTITY_HEADING(player_vehicle, heading)
     end
 end)
