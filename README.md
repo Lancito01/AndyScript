@@ -10,6 +10,7 @@ https://discord.gg/9vzATnaM9c
 - Give every weapon after joining a session
 - Heal ped to max health (only health, no armor)
 - Spawn peds inside player vehicle
+- Chaos mode
 - Andy Spooner
 - ... and more!
 
