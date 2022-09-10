@@ -1,4 +1,4 @@
-script_version = "v0.0.12"
+script_version = "v0.0.13"
 util.require_natives(1660775568)
 util.keep_running()
 
@@ -22,7 +22,24 @@ util.log = function(str)
 end
 
 --On Script Start
-util.toast("Welcome back, friend. :D")
+local user_name = players.get_name(players.user())
+local possible_welcome_phrases = {
+    "OwO, who's this?",
+    "Glad you're here, " .. user_name .. ".",
+    "Welcome, " .. user_name ..". We hope you brought pizza.",
+    user_name .. " just slid into the script.",
+    "Welcome, " .. user_name .. ". Hi!",
+    user_name .. " joined the party.",
+    "Glad you're here, " .. user_name .. ".",
+    "Yay you made it, " .. user_name .. "!",
+    user_name .. " just landed.",
+    "Good to see you, " .. user_name .. ".",
+    user_name .. " just showed up!",
+    user_name .. " is here.",
+    user_name .. " hopped into the script."
+}
+local chosen_welcome_phrase = math.random(#possible_welcome_phrases)
+util.toast(possible_welcome_phrases[chosen_welcome_phrase])
 
 --Functions
 local function announce(string)
@@ -38,6 +55,16 @@ local function request_model(hash, timeout)
         util.yield()
     end
     return STREAMING.HAS_MODEL_LOADED(hash)
+end
+
+local function request_control(entity, timeout)
+    local end_time = os.time() + (timeout or 5)
+    NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entity)
+    while not NETWORK.NETWORK_HAS_CONTROL_OF_ENTITY(entity) and end_time >= os.time() do
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entity)
+        util.yield()
+    end
+    return NETWORK.NETWORK_HAS_CONTROL_OF_ENTITY(entity)
 end
 
 local some_ped_list = {
@@ -79,6 +106,7 @@ local online_tab = menu.list(menu.my_root(), "Online")
 menu.action(menu.my_root(), "Players shortcut", {}, 'Takes you to "Players" list.', function() menu.trigger_command(menu.ref_by_path('Players')) end)
 local vehicles_tab = menu.list(menu.my_root(), "Vehicles")
 local world_tab = menu.list(menu.my_root(), "World")
+local fun_tab = menu.list(menu.my_root(), "Fun", {}, "Most of these are suggestions on my Discord. You should join! Link is in \"About\" tab.")
 local settings_tab = menu.list(menu.my_root(), "Settings")
 menu.divider(menu.my_root(), "Information")
 local info_tab = menu.list(menu.my_root(), "About")
@@ -166,6 +194,12 @@ end
 )
 
 --Vehicles tab
+--Include last vehicle
+menu.toggle(vehicles_tab, "Include Last Vehicle For Vehicle Functions", {}, "Option to include last vehicle if you're not in a vehicle at the time of running a function.", function(state) include_last_vehicle_for_vehicle_functions = state end)
+
+--Options divider
+menu.divider(vehicles_tab, "Options")
+
 --Radio off automatically
 local last_vehicle_with_radio_off = 0
 menu.toggle_loop(vehicles_tab, "Turn Off Radio Automatically", {}, "Turns off the radio each time you get in a vehicle",
@@ -193,13 +227,36 @@ menu.toggle_loop(vehicles_tab, "Auto-flip Vehicle", {}, "Automatically flips you
     local heading = v3.getHeading(v3.new(rotation))
     local vehicle_distance_to_ground = ENTITY.GET_ENTITY_HEIGHT_ABOVE_GROUND(player_vehicle)
     local am_i_on_ground = vehicle_distance_to_ground < 2 --and true or false
+    local speed = ENTITY.GET_ENTITY_SPEED(player_vehicle)
     if not VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(player_vehicle) and ENTITY.IS_ENTITY_UPSIDEDOWN(player_vehicle) and am_i_on_ground then
-        local speed = ENTITY.GET_ENTITY_SPEED_VECTOR(player_vehicle, true)
         VEHICLE.SET_VEHICLE_ON_GROUND_PROPERLY(player_vehicle, 5.0)
-        VEHICLE.SET_VEHICLE_FORWARD_SPEED(player_vehicle, speed.y)
         ENTITY.SET_ENTITY_HEADING(player_vehicle, heading)
+        util.yield()
+        VEHICLE.SET_VEHICLE_FORWARD_SPEED(player_vehicle, speed)
     end
 end)
+
+--Vehicle accel
+menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, "Changes how fast the car goes. 0 = Default",
+    function(input)
+        if vehicle_accel_button ~= 0 and vehicle_accel_button then
+            menu.delete(vehicle_accel_button)
+            vehicle_accel_button = 0
+        end
+        vehicle_accel_button = menu.action(vehicles_tab, "Apply Acceleration", {}, "",
+        function()
+            local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
+            if vehicle == 0 then
+                util.toast("Get in a car first.")
+            else
+                local number = tonumber(input) or 0
+                VEHICLE.MODIFY_VEHICLE_TOP_SPEED(vehicle, number)
+                announce("Acceleration altered. Give it a try!")
+            end
+        end
+        )
+    end, "0"
+)
 
 --World
 --Change local gravity
@@ -235,6 +292,75 @@ menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mod
         for i, veh in ipairs(entities.get_all_vehicles_as_handles()) do
             NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(veh)
             ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(veh, 1, 0.0, 10.0, 0.0, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
+        end
+    end
+)
+
+--spooner
+local spooner_main_list = menu.list(world_tab, "Andy Spooner")
+local spooned = {}
+
+local function show_entity_spooner(handle, input, list)
+    local teleport = menu.action(list, "Teleport To Me", {}, "",
+    function()
+        local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+        ENTITY.SET_ENTITY_COORDS(handle, coords.x, coords.y, coords.z, 0, 0, 0, 0)
+    end)
+    menu.action(list, "Delete", {}, "",
+    function()
+        entities.delete_by_handle(handle)
+        menu.delete(list)
+    end)
+end
+
+local function add_spooner_list(list_handle, handle)
+    table.insert(spooned, {menu = list_handle, entity = handle})
+end
+
+local function entity_spooner(input)
+    local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+    request_model(util.joaat(input))
+    local ped_handle = PED.CREATE_PED(4, util.joaat(input), coords.x, coords.y, coords.z, 0, true, true)
+    local list = menu.list(spooner_main_list, input)
+    add_spooner_list(spooned, ped_handle)
+    show_entity_spooner(ped_handle, input, list)
+end
+
+local input_handle = menu.text_input(spooner_main_list, "Enter An Entity Hash", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) entity_spooner(tostring(input)) end)
+--[[Spooner divider]] menu.divider(spooner_main_list, "Spawned Entities will appear here:")
+
+--Fun tab
+--Ride cow
+local function set_ped_apathy(ped, value)
+    PED.SET_PED_CONFIG_FLAG(ped, 208, value)
+    PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(ped, value)
+    ENTITY.SET_ENTITY_INVINCIBLE(ped, value)
+end
+menu.toggle(fun_tab, "Ride Cow", {}, "Spawns a fucking cow for some reason, then rides it. Your ped becomes invisible (for other players) but the cow doesn't. Compatible with \"Vehicles > Auto Flip Vehicle\".",
+    function(state)
+        local player_heading = ENTITY.GET_ENTITY_HEADING(players.user_ped())
+        local player_coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+        if state then
+            request_model(util.joaat("TRACTOR")) -- util.joaat("TRACTOR") == 1641462412 (tractor hash)
+            vehicle_for_cow_rider = VEHICLE.CREATE_VEHICLE(util.joaat("TRACTOR"), player_coords.x, player_coords.y, player_coords.z, player_heading, true, true, false)
+            request_model(util.joaat("A_C_Cow")) -- util.joaat("A_C_Cow") == 4244282910 (cow hash)
+            ENTITY.SET_ENTITY_VISIBLE(vehicle_for_cow_rider, false, 0)
+            PED.SET_PED_INTO_VEHICLE(players.user_ped(), vehicle_for_cow_rider, -1)
+            cow_for_cow_rider = PED.CREATE_PED(29, 4244282910, player_coords.x, player_coords.y, player_coords.z, player_heading, true, true)
+            local bone = PED.GET_PED_BONE_INDEX(cow_for_cow_rider, 0x796e)
+            ENTITY.ATTACH_ENTITY_TO_ENTITY(cow_for_cow_rider, vehicle_for_cow_rider, bone, 0, -1, 0.5, 0, 0, 0, true, false, false, false, 1, false, false)
+            ENTITY.SET_ENTITY_INVINCIBLE(vehicle_for_cow_rider, true)
+            set_ped_apathy(cow_for_cow_rider, true)
+            if not menu.get_value(menu.ref_by_path("Self>Glued To Seats")) then
+                menu.trigger_command(menu.ref_by_path("Self>Glued To Seats", 38), "on")
+                altered_seatbelt_state = true
+            end
+        else
+            if altered_seatbelt_state then
+                menu.trigger_command(menu.ref_by_path("Self>Glued To Seats", 38), "off")
+            end
+            entities.delete_by_handle(vehicle_for_cow_rider)
+            entities.delete_by_handle(cow_for_cow_rider)
         end
     end
 )
@@ -342,26 +468,29 @@ function(state)
         --[[Maker button title]] menu.divider(single_custom_shortcut_menu, "Once you're done, press this:")
         --[[Maker button]] menu.action(single_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
         function()
-            if not pcall(menu.ref_by_command_name, menu.get_value(new_shortcut_command)) then
+            local new_shortcut_test = menu.get_value(new_shortcut_command)
+            if not pcall(menu.ref_by_command_name, string.split(new_shortcut_test, " ")[1]) then --[[string.split ALWAYS returns a table]] ---@diagnostic disable-line
                 util.toast("Error creating shortcut. Is the original command given correct?")
             elseif menu.get_value(new_shortcut_title) == "" then
                 util.toast("Error creating shortcut. Does it have a name?")
             else
-                create_shortcut(menu.get_value(new_shortcut_title), menu.get_value(new_shortcut), menu.get_value(new_shortcut_command))
+                create_shortcut(menu.get_value(new_shortcut_title), menu.get_value(new_shortcut), new_shortcut_test)
                 util.toast('New shortcut "' .. menu.get_value(new_shortcut_title) .. '" created!')
             end
         end)
 
         local multiple_custom_shortcut_menu = menu.list(add_a_shortcut, "Shorten Multiple Commands", {}, "Shortcut creator to shorten many commands in one shortcut, such as 'rapidfire; godmode'. Nesting commands is allowed and encouraged. Go wild!")
-        local multiple_shortcut_maker_title = menu.divider(multiple_custom_shortcut_menu, "Fill these in:")
+        --[[Multiple-shortcuts title]] menu.divider(multiple_custom_shortcut_menu, "Fill these in:")
         local multiple_new_shortcut_title = menu.text_input(multiple_custom_shortcut_menu, "Title", {"multiplecustomshortcuttitle"}, "Title to identify custom shortcut.", function() end)
         local multiple_new_shortcut = menu.text_input(multiple_custom_shortcut_menu, "Shortcut", {"multiplecustomshortcut"}, "Command that, when typed into the command box, will trigger the original command you want to shorten.", function() end)
         local multiple_custom_command1 = menu.text_input(multiple_custom_shortcut_menu, "Command 1", {"multiplecustomshortcutcommand1"}, "Original command(s) that you want to shorten.", function() end)
         local multiple_custom_command2 = menu.text_input(multiple_custom_shortcut_menu, "Command 2", {"multiplecustomshortcutcommand2"}, "Original command(s) that you want to shorten.", function() end)
-        local multiple_shortcut_maker_subtitle = menu.divider(multiple_custom_shortcut_menu, "Once you're done, press this:")
-        local multiple_create_shortcut_command = menu.action(multiple_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
+        --[[Multiple-shortcuts maker divider]] menu.divider(multiple_custom_shortcut_menu, "Once you're done, press this:")
+        --[[Multiple-shortcuts maker button]] menu.action(multiple_custom_shortcut_menu, "Create", {}, "Creates the custom shortcut with the given specifications.",
         function()
-            if not pcall(menu.ref_by_command_name, menu.get_value(multiple_custom_command1)) and pcall(menu.ref_by_command_name, menu.get_value(multiple_custom_command2)) then
+            local new_shortcut_test1 = menu.get_value(multiple_custom_command1)
+            local new_shortcut_test2 = menu.get_value(multiple_custom_command2)
+            if not pcall(menu.ref_by_command_name, string.split(new_shortcut_test1, " ")[1]) and pcall(menu.ref_by_command_name, string.split(new_shortcut_test2, " ")[1]) then --[[string.split ALWAYS returns a table]] ---@diagnostic disable-line
                 util.toast("Error creating shortcut. Are the original commands given correct?")
             elseif multiple_new_shortcut_title == "" then
                 util.toast("Error creating shortcut. Does it have a name?")
@@ -432,7 +561,7 @@ local credits_under_info_tab = menu.list(info_tab, "Credits")
 menu.readonly(info_tab, "Made by Andy <3", "Lancito01#0001")
 menu.readonly(info_tab, "Version", script_version)
 menu.hyperlink(info_tab, "AndyScript Discord", "https://discord.gg/9vzATnaM9c", "The one and only official AndyScript Discord server, where you can find the script's changelog, support and a suggestions channel (they are greatly appreciated), and a good community to chat with. :D")
-menu.hyperlink(info_tab, "GitHub", "https://gist.github.com/Lancito01/aa79a2d964e2409094578fd6cdabf0d8")
+menu.hyperlink(info_tab, "GitHub", "https://github.com/Lancito01/AndyScript")
 menu.readonly(credits_under_info_tab, "Ren", "For helping me with majority of the code and with stupid questions. <3")
 
 --Player root
@@ -465,11 +594,6 @@ local function is_player_modder(pid)
     )
 end
 
---local function pipe_bomb(pid)
---    menu.action(menu.player_root(pid), "Sends A Pipebomb Directly To Their Mailbox", {}, "Tracks their house based on their IP and geolocation data and sends an untraceable pipebomb to their home and places it stealthily inside their mailbox for a funny surprise.", function()
---    util.toast("We're out of pipebombs. The fuck are you doin anyways") end)
---end
-
 --Spawn ped in car
 local function spawn_ped_in_car(car, playerped, isclone)
     if car == 0 then
@@ -479,6 +603,7 @@ local function spawn_ped_in_car(car, playerped, isclone)
             local ped_created = PED.CLONE_PED(playerped, true, false, true)
             local seat = VEHICLE.IS_VEHICLE_SEAT_FREE(car, -1, false) and -1 or -2
             PED.SET_PED_INTO_VEHICLE(ped_created, car, seat)
+            announce("Ped cloned.")
         else
             local coords = ENTITY.GET_ENTITY_COORDS(car, false)
             local random_ped = some_ped_list[math.random(#some_ped_list)]
@@ -487,6 +612,7 @@ local function spawn_ped_in_car(car, playerped, isclone)
             local ped_created = entities.create_ped(4, random_ped_hash, coords, 0)
             local seat = VEHICLE.IS_VEHICLE_SEAT_FREE(car, -1, false) and -1 or -2
             PED.SET_PED_INTO_VEHICLE(ped_created, car, seat)
+            announce("Ped spawned.")
         end
     else
         util.toast("There are no available seats free in their car.")
@@ -500,6 +626,7 @@ local function fill_car_with_peds(vehicle, playerped, isclone)
         while VEHICLE.ARE_ANY_VEHICLE_SEATS_FREE(vehicle) do
             spawn_ped_in_car(vehicle, playerped, isclone)
         end
+        announce("Car filled.")
     else
         util.toast("There are no available seats free in their car.")
     end
@@ -511,11 +638,124 @@ local function is_player_andy(pid)
     end
 end
 
+local function repair_player_vehicle(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        if request_control(player_vehicle) then
+            VEHICLE.SET_VEHICLE_FIXED(player_vehicle)
+            announce(players.get_name(pid) .. "'s vehicle fixed!")
+        else
+            util.toast("Couldn't get control of their vehicle.")
+        end
+    end
+end
+
+local function toggle_player_vehicle_engine(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        local is_running = VEHICLE.GET_IS_VEHICLE_ENGINE_RUNNING(player_vehicle)
+        if request_control(player_vehicle) then
+            VEHICLE.SET_VEHICLE_ENGINE_ON(player_vehicle, not is_running, true, true)
+            announce(players.get_name(pid) .. "'s engine toggled!")
+        else
+            util.toast("Couldn't get control of their vehicle.")
+        end
+    end
+end
+
+local function break_player_vehicle_engine(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        if request_control(player_vehicle) then
+            VEHICLE.SET_VEHICLE_ENGINE_HEALTH(player_vehicle, -10.0)
+            announce(players.get_name(pid) .. "'s engine broken!")
+        else
+            util.toast("Couldn't get control of their vehicle.")
+        end
+    end
+end
+
+local function launch_up_player_vehicle(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        if request_control(player_vehicle) then
+            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 0.0, 1000.0, true, true, true, true)
+            announce(players.get_name(pid) .. "'s launched.")
+        else
+            util.toast("Couldn't get control of their vehicle.")
+        end
+    end
+end
+
+local function boost_player_vehicle_forward(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        request_control(player_vehicle)
+        ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 1000.0, 0.0, true, true, true, true)
+        announce(players.get_name(pid) .. "'s vehicle boosted.")
+    end
+end
+
+local function stop_player_vehicle(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        request_control(player_vehicle)
+        VEHICLE.BRING_VEHICLE_TO_HALT(player_vehicle, 0.0, 1, false)
+        announce(players.get_name(pid) .. "'s vehicle stopped.")
+    end
+end
+
+local function flip_player_vehicle(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        request_control(player_vehicle)
+        local heading = ENTITY.GET_ENTITY_HEADING(player_vehicle)
+        ENTITY.SET_ENTITY_ROTATION(player_vehicle, 0, 180, -heading, 1, true)
+        announce(players.get_name(pid) .. "'s vehicle flipped.")
+    end
+end
+
+local function turn_player_vehicle(pid)
+    local player_ped = PLAYER.GET_PLAYER_PED(pid)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    if player_vehicle == 0 then
+        util.toast(players.get_name(pid) .. " is not in any vehicle.")
+    else
+        request_control(player_vehicle)
+        local heading = ENTITY.GET_ENTITY_HEADING(player_vehicle)
+        local alter_heading = heading >= 180 and heading-180 or heading+180
+        ENTITY.SET_ENTITY_ROTATION(player_vehicle, 0, 0, alter_heading, 2, true)
+        announce(players.get_name(pid) .. "'s vehicle turned.")
+    end
+end
+
 local function generate_features(pid)
     menu.divider(menu.player_root(pid), "AndyScript")
     local vehicles_player_root = menu.list(menu.player_root(pid), "Vehicles")
     local online_player_root = menu.list(menu.player_root(pid), "Online")
-    menu.toggle(vehicles_player_root, "Include Player's Last Vehicle", {}, "Include the selected player's last vehicle in the vehicle-related functions.", function(state) include_last_vehicle_for_player_functions = state end)
+    menu.toggle(vehicles_player_root, "Include Player's Last Vehicle", {}, "Option to use last vehicle in case the player is not in a vehicle when running a function.", function(state) include_last_vehicle_for_player_functions = state end)
+    menu.divider(vehicles_player_root, "Options")
     menu.action_slider(vehicles_player_root, "Clone Ped Inside Their Car", {}, "Clones the player's ped and places it in the first free seat it finds.", {"Once", "Fill vehicle"},
         function(index)
             local player_ped = PLAYER.GET_PLAYER_PED(pid)
@@ -538,8 +778,15 @@ local function generate_features(pid)
         end)
     menu.toggle_loop(vehicles_player_root, "Remote Horn Boost", {}, "Boosts their car forward when they honk the horn. Can be combined with \"Remote Car Jump\".", function() remote_horn_boost(pid) end)
     menu.toggle_loop(vehicles_player_root, "Remote Car Jump", {}, "Makes their car jump when they honk the horn. Can be combined with \"Remote Horn Boost\".", function() remote_car_jump(pid) end)
+    menu.action(vehicles_player_root, "Repair", {}, "Repairs their vehicle to full health.", function() repair_player_vehicle(pid) end)
+    menu.action(vehicles_player_root, "Toggle Engine", {}, "If their engine is on, it toggles it off and viceversa.", function() toggle_player_vehicle_engine(pid) end)
+    menu.action(vehicles_player_root, "Break Engine", {}, "Makes their engine catch on fire.", function() break_player_vehicle_engine(pid) end)
+    menu.action(vehicles_player_root, "Boost Forward", {}, "Boosts their vehicle forward with great force.", function() boost_player_vehicle_forward(pid) end)
+    menu.action(vehicles_player_root, "Launch Up", {}, "Launches their vehicle into the stratosphere. Okay, maybe not that high but still pretty funny.", function() launch_up_player_vehicle(pid) end)
+    menu.action(vehicles_player_root, "Stop Vehicle", {}, "Stops their vehicle in the exact spot they're at. Doesn't freeze it, just stops it.", function() stop_player_vehicle(pid) end) 
+    menu.action(vehicles_player_root, "Flip Vehicle Upside Down", {}, "Flips their car in its Y axis.", function() flip_player_vehicle(pid) end)
+    menu.action(vehicles_player_root, "Turn Vehicle 180 Degrees", {}, "Flips their car in its Z axis.", function() turn_player_vehicle(pid) end)
     menu.action(online_player_root, "Check If Player Is Modder", {"isplayermodder"}, "Checks if the selected player is a modder, then displays the result in local chat. Other players can't see this message.", function() is_player_modder(pid) end)
-    --pipe_bomb(pid)
 end
 
 local function on_player_join(pid)
