@@ -168,7 +168,8 @@ local possible_welcome_phrases = {
     user_name .. " hopped into the script."
 }
 local chosen_welcome_phrase = math.random(#possible_welcome_phrases)
-util.toast(possible_welcome_phrases[chosen_welcome_phrase])
+util.toast("Loaded AndyScript " .. script_version .. "\n\n" ..
+possible_welcome_phrases[chosen_welcome_phrase])
 
 --Functions
 local function announce(string)
