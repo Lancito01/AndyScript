@@ -1,3 +1,4 @@
+--
 script_version = "v0.0.13"
 util.require_natives(1660775568)
 util.keep_running()
