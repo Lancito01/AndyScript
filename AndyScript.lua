@@ -133,7 +133,7 @@ util.require_natives(1660775568)
 util.keep_running()
 
 local store = filesystem.store_dir()
-local AndyScript_store = store .. "/AndyScript-dbg"
+local AndyScript_store = store .. "/AndyScript"
 local shortcut_path = AndyScript_store .. "/shortcuts.txt"
 
 local notif_prefix = "[AndyScript] "
