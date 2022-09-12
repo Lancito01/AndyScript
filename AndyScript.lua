@@ -1,7 +1,6 @@
 script_version = "v0.0.14"
 
--- Auto-Updater v1.8
--- by Hexarobi, modified by Ren
+-- Auto-Updater by Hexarobi, modified by Ren
 -- tysm to the both of u <3
 
 local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
