@@ -1,3 +1,129 @@
+-- Auto-Updater v1.8
+-- by Hexarobi, modified by Ren
+-- tysm to the both of u <3
+
+local function convert_backslashes_to_forwardslashes(str)
+    return str:gsub("\\", "/")
+end
+
+local function parse_url_host_and_path(url)
+    return url:match("://(.-)/"), "/"..url:match("://.-/(.*)")
+end
+
+local toast = util.toast
+local format = string.format
+
+local SCRIPTS_DIR       = convert_backslashes_to_forwardslashes(filesystem.scripts_dir())
+local SCRIPT_RELPATH    = convert_backslashes_to_forwardslashes(SCRIPT_RELPATH)
+local STORE_DIR         = convert_backslashes_to_forwardslashes(filesystem.store_dir())
+local SCRIPT_PATH       = SCRIPTS_DIR .. SCRIPT_RELPATH
+local VERSION_DIR       = STORE_DIR .. SCRIPT_NAME .. "/"
+local VERSION_PATH      = VERSION_DIR .. "version.txt"
+
+local WAITING_FOR_HTTP_RESULT = true
+
+if not filesystem.exists(VERSION_DIR) then
+    filesystem.mkdirs(VERSION_DIR)
+end
+
+local function toast_formatted(str, ...)
+    toast(format(str, ...))
+end
+
+local function read_version_id(path)
+    local file = io.open(path)
+    if file then
+        local version = file:read()
+        file:close()
+        return version
+    else
+        toast("Error reading version file.")
+    end
+end
+
+local function write_version_id(path, version_id)
+    local file = io.open(path, "wb")
+    if file == nil then
+        toast("Error saving version ID file: " .. path)
+        return false
+    end
+    file:write(version_id)
+    file:close()
+    return true
+end
+
+local function replace_current_script(result)
+    local file = io.open(SCRIPT_PATH, "wb")
+    if file == nil then
+        toast("Error updating "..SCRIPT_PATH..". Could not open file for writing.")
+        return false
+    end
+    file:write(result.."\n")
+    file:close()
+    toast("Updated.")
+    return true
+end
+
+local function update_script(url)
+
+    local url_host, url_path = parse_url_host_and_path(url)
+
+    local function http_success(result, headers, status_code)
+        WAITING_FOR_HTTP_RESULT = false
+        if status_code == 304 then
+            -- No update found
+            toast_formatted("%s is up to date!", SCRIPT_NAME)
+            return
+        end
+
+        if not result or result == "" then
+            toast_formatted("Error updating %s. Found empty script file.", SCRIPT_NAME)
+            return
+        end
+
+        replace_current_script(result)
+
+        if headers then
+            for header_key, header_value in pairs(headers) do
+                if header_key == "ETag" then
+                    write_version_id(VERSION_PATH, header_value)
+                end
+            end
+        end
+
+        toast_formatted("Updated %s. Restarting...", SCRIPT_NAME)
+        util.yield(2900)    -- Avoid restart loops by giving time for any other scripts to also complete updates
+        util.restart_script()
+    end
+
+    local function http_fail()
+        WAITING_FOR_HTTP_RESULT = false
+        toast_formatted("Error updating %s. Failed to download update.", SCRIPT_NAME)
+    end
+
+    local function http_add_cache_header_if_cached()
+        -- Only use cached version if the file still exists on disk
+        if filesystem.exists(VERSION_PATH) then
+            -- Use ETags to only fetch files if they have been updated
+            -- https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
+            local cached_version_id = read_version_id(VERSION_PATH)
+            if cached_version_id then
+                async_http.add_header("If-None-Match", cached_version_id)
+            end
+        end
+    end
+
+    async_http.init(url_host, url_path, http_success, http_fail)
+    http_add_cache_header_if_cached()
+    async_http.dispatch()
+end
+
+update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyScript.lua")
+while WAITING_FOR_HTTP_RESULT do
+    util.yield()
+end
+-- End of auto-updater
+
 script_version = "v0.0.13"
 util.require_natives(1660775568)
 util.keep_running()
