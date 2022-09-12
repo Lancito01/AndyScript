@@ -1,6 +1,7 @@
-script_version = "v0.0.14"
+script_version = "[Debug]"
 
--- Auto-Updater by Hexarobi, modified by Ren
+-- Auto-Updater v1.8
+-- by Hexarobi, modified by Ren
 -- tysm to the both of u <3
 local wait_for_restart = false
 local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
@@ -123,7 +124,7 @@ local function update_script(url)
     async_http.dispatch()
 end
 
-update_script("https://raw.githubusercontent.com/Lancito01/AndyScript-dbg/main/AndyScript-dbg.lua?token=GHSAT0AAAAAABXTXYNVQQVHDLZB6IBTSI6SYY7UYZA")
+update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyScript.lua")
 while WAITING_FOR_HTTP_RESULT do
     util.yield()
 end
