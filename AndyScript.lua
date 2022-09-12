@@ -1,3 +1,5 @@
+script_version = "v0.0.14"
+
 -- Auto-Updater v1.8
 -- by Hexarobi, modified by Ren
 -- tysm to the both of u <3
@@ -74,7 +76,7 @@ local function update_script(url)
         WAITING_FOR_HTTP_RESULT = false
         if status_code == 304 then
             -- No update found
-            toast_formatted("%s is up to date!", SCRIPT_NAME)
+            toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version)
             return
         end
 
@@ -127,7 +129,6 @@ end
 menu.delete(please_wait_while_updating_menu)
 -- End of auto-updater
 
-script_version = "v0.0.14"
 util.require_natives(1660775568)
 util.keep_running()
 
@@ -939,4 +940,3 @@ util.on_stop(function()
     write_to_shortcut_file(io.open(shortcut_path, "w"))
     util.toast("See you later!")
 end)
-
