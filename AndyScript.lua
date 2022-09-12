@@ -1,9 +1,8 @@
-local script_version = "v0.0.14"
+script_version = "v0.0.14"
 
--- Auto-Updater v1.8
--- by Hexarobi, modified by Ren
+-- Auto-Updater by Hexarobi, modified by Ren
 -- tysm to the both of u <3
-
+local wait_for_restart = false
 local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
 
 local function convert_backslashes_to_forwardslashes(str)
@@ -96,7 +95,9 @@ local function update_script(url)
         end
 
         toast_formatted("Updated %s. Restarting...", SCRIPT_NAME)
+        wait_for_restart = true
         util.yield(2900)    -- Avoid restart loops by giving time for any other scripts to also complete updates
+        wait_for_restart = false
         util.restart_script()
     end
 
@@ -122,18 +123,21 @@ local function update_script(url)
     async_http.dispatch()
 end
 
-update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyScript.lua")
+update_script("https://raw.githubusercontent.com/Lancito01/AndyScript-dbg/main/AndyScript-dbg.lua?token=GHSAT0AAAAAABXTXYNVQQVHDLZB6IBTSI6SYY7UYZA")
 while WAITING_FOR_HTTP_RESULT do
     util.yield()
 end
 menu.delete(please_wait_while_updating_menu)
+while wait_for_restart do
+    util.yield()
+end
 -- End of auto-updater
 
 util.require_natives(1660775568)
 util.keep_running()
 
 local store = filesystem.store_dir()
-local AndyScript_store = store .. "/AndyScript"
+local AndyScript_store = store .. "/AndyScript-dbg"
 local shortcut_path = AndyScript_store .. "/shortcuts.txt"
 
 local notif_prefix = "[AndyScript] "
