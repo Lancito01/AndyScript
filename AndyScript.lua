@@ -1,4 +1,4 @@
-script_version = "[Debug]"
+script_version = "v0.0.14"
 
 -- Auto-Updater v1.8
 -- by Hexarobi, modified by Ren
