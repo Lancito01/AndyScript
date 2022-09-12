@@ -98,6 +98,7 @@ local function update_script(url)
         waiting_for_restart = true
         WAITING_FOR_HTTP_RESULT = false
         util.yield(2900)    -- Avoid restart loops by giving time for any other scripts to also complete updates
+        waiting_for_restart = false
         util.restart_script()
     end
 
@@ -942,3 +943,4 @@ util.on_stop(function()
     write_to_shortcut_file(io.open(shortcut_path, "w"))
     util.toast("See you later!")
 end)
+
