@@ -2,6 +2,8 @@
 -- by Hexarobi, modified by Ren
 -- tysm to the both of u <3
 
+local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
+
 local function convert_backslashes_to_forwardslashes(str)
     return str:gsub("\\", "/")
 end
@@ -122,6 +124,7 @@ update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyS
 while WAITING_FOR_HTTP_RESULT do
     util.yield()
 end
+menu.delete(please_wait_while_updating_menu)
 -- End of auto-updater
 
 script_version = "v0.0.13"
@@ -935,3 +938,4 @@ util.on_stop(function()
     write_to_shortcut_file(io.open(shortcut_path, "w"))
     util.toast("See you later!")
 end)
+
