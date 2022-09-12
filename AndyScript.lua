@@ -1,7 +1,6 @@
-script_version = "v0.0.14"
+local script_version = "v0.0.14"
 
--- Auto-Updater v1.8
--- by Hexarobi, modified by Ren
+-- Auto-Updater by Hexarobi, modified by Ren
 -- tysm to the both of u <3
 local wait_for_restart = false
 local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
@@ -64,7 +63,6 @@ local function replace_current_script(result)
     end
     file:write(result.."\n")
     file:close()
-    toast("Updated.")
     return true
 end
 
