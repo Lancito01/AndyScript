@@ -1,8 +1,7 @@
 # AndyScript
 AndyScript for Stand GTA V mod menu
 
-Join the Discord (please)
-https://discord.gg/9vzATnaM9c
+Join the [Discord](https://discord.gg/9vzATnaM9c) (please)
 
 (Cool and unique) Features list:
 - Turn off radio automatically
