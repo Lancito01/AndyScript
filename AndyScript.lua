@@ -24,6 +24,7 @@ local VERSION_DIR       = STORE_DIR .. SCRIPT_NAME .. "/"
 local VERSION_PATH      = VERSION_DIR .. "version.txt"
 
 local WAITING_FOR_HTTP_RESULT = true
+local waiting_for_restart = false
 
 if not filesystem.exists(VERSION_DIR) then
     filesystem.mkdirs(VERSION_DIR)
@@ -72,7 +73,6 @@ local function update_script(url)
     local url_host, url_path = parse_url_host_and_path(url)
 
     local function http_success(result, headers, status_code)
-        WAITING_FOR_HTTP_RESULT = false
         if status_code == 304 then
             -- No update found
             toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version)
@@ -95,6 +95,8 @@ local function update_script(url)
         end
 
         toast_formatted("Updated %s. Restarting...", SCRIPT_NAME)
+        waiting_for_restart = true
+        WAITING_FOR_HTTP_RESULT = false
         util.yield(2900)    -- Avoid restart loops by giving time for any other scripts to also complete updates
         util.restart_script()
     end
@@ -122,7 +124,7 @@ local function update_script(url)
 end
 
 update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyScript.lua")
-while WAITING_FOR_HTTP_RESULT do
+while WAITING_FOR_HTTP_RESULT or waiting_for_restart do
     util.yield()
 end
 menu.delete(please_wait_while_updating_menu)
