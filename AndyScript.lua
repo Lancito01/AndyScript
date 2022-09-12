@@ -127,7 +127,7 @@ end
 menu.delete(please_wait_while_updating_menu)
 -- End of auto-updater
 
-script_version = "v0.0.13"
+script_version = "v0.0.14"
 util.require_natives(1660775568)
 util.keep_running()
 
