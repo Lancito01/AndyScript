@@ -1,7 +1,6 @@
 local script_version = "v0.0.15"
 
--- Auto-Updater by Hexarobi, modified by Ren
--- tysm to the both of u <3
+-- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
 local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
 
@@ -284,7 +283,7 @@ menu.action(self_tab, "Max Health", {"healself"}, "Heals your ped to its max hea
 function()
     local max_health = ENTITY.GET_ENTITY_MAX_HEALTH(players.user_ped())
     ENTITY.SET_ENTITY_HEALTH(players.user_ped(), max_health, 0)
-    announce("Health maxed")
+    announce("Health maxed.")
 end
 )
 
@@ -292,6 +291,7 @@ end
 menu.action(self_tab, "Max Armor", {}, "Maxes out your armor.",
 function()
     PED.SET_PED_ARMOUR(players.user_ped(), 100)
+    announce("Armor filled.")
 end
 )
 
@@ -299,7 +299,7 @@ end
 menu.action(self_tab, "Clean", {"cleanself"}, "Cleans your ped from all visible blood.",
 function()
     PED.CLEAR_PED_BLOOD_DAMAGE(players.user_ped())
-    announce("Ped cleaned")
+    announce("Ped cleaned.")
 end
 )
 
