@@ -1,4 +1,4 @@
-local script_version = "v0.0.14"
+local script_version = "v0.0.15"
 
 -- Auto-Updater by Hexarobi, modified by Ren
 -- tysm to the both of u <3
@@ -303,6 +303,13 @@ function()
 end
 )
 
+--Angry mode
+menu.toggle_loop(self_tab, "Disable \"Angry Mode\"", {}, "Disables the state where the ped is angry and moves quickly after shooting.",function()
+    PED.SET_MOVEMENT_MODE_OVERRIDE(players.user_ped(), "DEFAULT")
+end, function()
+    PED.SET_MOVEMENT_MODE_OVERRIDE(players.user_ped(), 0)
+end)
+
 --Online tab
 --Weapons
 menu.toggle(online_tab, "Give All Weapons After Joining A Session", {}, "As soon as the transition is over, get all weapons.",
@@ -454,14 +461,25 @@ end
 
 local function entity_spooner(input)
     local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
-    request_model(util.joaat(input))
-    local ped_handle = PED.CREATE_PED(4, util.joaat(input), coords.x, coords.y, coords.z, 0, true, true)
+    local hash = util.joaat(input)
+    local entitiy_handle = 0
+    if request_model(hash) then
+        if STREAMING.IS_MODEL_A_PED(hash) then
+            entitiy_handle = entities.create_ped(4, hash, coords, 0)
+        elseif STREAMING.IS_MODEL_A_VEHICLE(hash) then
+            entitiy_handle = entities.create_vehicle(hash, coords, 0)
+        else -- must be an object
+            entitiy_handle = entities.create_object(hash, coords)
+        end
     local list = menu.list(spooner_main_list, input)
-    add_spooner_list(spooned, ped_handle)
-    show_entity_spooner(ped_handle, input, list)
+        add_spooner_list(spooned, entitiy_handle)
+        show_entity_spooner(entitiy_handle, input, list)
+    else
+        util.toast("Couldn't load given hash. Are you sure you typed a valid entity?")
+    end
 end
 
-local input_handle = menu.text_input(spooner_main_list, "Enter An Entity Hash", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) entity_spooner(tostring(input)) end)
+local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Hash", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) entity_spooner(tostring(input)) end)
 --[[Spooner divider]] menu.divider(spooner_main_list, "Spawned Entities will appear here:")
 
 --Fun tab
@@ -512,6 +530,8 @@ end
 local shortcuts = {}
 -- {{new_button, shortcut_new, shortcut_title, shortcut_old}, {new_button, shortcut_new, shortcut_title, shortcut_old}}
 
+local shortcut_menu = menu.list(settings_tab, "Andy's Shortcuts")
+
 local function read_multiple_commands(shortcut_title, shortcut_new, shortcut_old)
     if string.find(shortcut_old, ";") then
         local commands = string.split(shortcut_old, ";") ---@diagnostic disable-line
@@ -535,7 +555,10 @@ local function import_shortcuts_from_file(shortcut_new, shortcut_name, shortcut_
     table.insert(shortcuts, {0, shortcut_new, shortcut_name, shortcut_old})
 end
 
-local function read_shortcut_file(filehandle)
+local function read_shortcut_file(file_path)
+    if filesystem.exists(file_path) then
+        local filehandle = io.open(shortcut_path, "r") -- Open file in read-only mode
+        if filehandle then
     local what_line_am_i_reading = 0
     local imported_shortcut_count = 0
     for line in filehandle:lines() do
@@ -549,32 +572,24 @@ local function read_shortcut_file(filehandle)
         end
     end
     util.toast("Imported " .. imported_shortcut_count .. " previous shortcuts.")
+        else
+            util.toast("Failed to open file.")
+        end
+    end
 end
 
 function write_to_shortcut_file(filehandle)
     for index, value in ipairs(shortcuts) do
         if value[1] ~= -1 then
             if type(value[4]) ~= "table" then
-                filehandle:write(value[2])
-                filehandle:write(",")
-                filehandle:write(value[3])
-                filehandle:write(",")
-                filehandle:write(value[4])
-                filehandle:write("\n")
+                filehandle:write(value[2] .. "," .. value[3] .. "," .. value[4] .. "\n")
             else
-                filehandle:write(value[2])
-                filehandle:write(",")
-                filehandle:write(value[3])
-                filehandle:write(",")
-                filehandle:write(table.concat(value[4]))
-                filehandle:write("\n")
+                filehandle:write(value[2] .. "," .. value[3] .. "," .. table.concat(value[4]) .. "\n")
             end
         end
     end
     filehandle:flush()
 end
-
-shortcut_menu = menu.list(settings_tab, "Andy's Shortcuts")
 
 local have_shortcuts_been_enabled = false
 -- defining main lists
@@ -585,8 +600,7 @@ menu.toggle(shortcut_menu, "Enable", {"andyshortcuts"}, "Enable " .. '"' .. "And
 function(state)
     shortcut_status = state
     if not have_shortcuts_been_enabled then
-        local shortcut_open_file_read = io.open(shortcut_path, "r") -- Open file in read-only mode
-        read_shortcut_file(shortcut_open_file_read)
+        read_shortcut_file(shortcut_path)
         have_shortcuts_been_enabled = true
     end
     --To hide the buttons before you enable it
