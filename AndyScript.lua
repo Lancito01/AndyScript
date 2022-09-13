@@ -551,6 +551,33 @@ local function create_shortcut(shortcut_title, shortcut_new, shortcut_old)
     write_to_shortcut_file(io.open(shortcut_path, "w"))
 end
 
+local function delete_shortcut(shortcut)
+    local function where_is_shortcut_to_delete(input)
+        c = 1
+        for k, v in shortcuts do
+            if v[2] == input then
+                return c
+            end
+            c += 1
+        end
+    end
+    local table_which_includes_shortcut = where_is_shortcut_to_delete(shortcut)
+    if shortcuts[1] then
+        if shortcuts[table_which_includes_shortcut][2] == shortcut then
+            menu.delete(shortcuts[table_which_includes_shortcut][1])
+            shortcuts[table_which_includes_shortcut][1] = 0
+            table.remove(shortcuts, table_which_includes_shortcut)
+            write_to_shortcut_file(io.open(shortcut_path, "w"))
+            util.toast('Shortcut "' .. shortcut .. '" removed.')
+        else
+            util.toast("Shortcut not found.")
+        end
+    else
+        util.toast("There are no shortcuts. Try creating one before deleting!")
+    end
+    write_to_shortcut_file(io.open(shortcut_path, "w"))
+end
+
 local function import_shortcuts_from_file(shortcut_new, shortcut_name, shortcut_old)
     table.insert(shortcuts, {0, shortcut_new, shortcut_name, shortcut_old})
 end
@@ -657,25 +684,7 @@ function(state)
         --[[Remover subtitle]] menu.divider(remove_a_shortcut, "Once you're done, press this:")
         --[[Remover button]] menu.action(remove_a_shortcut, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
             function()
-                if shortcuts[1] then
-                    local does_shortcut_exist = false
-                    for k, v in shortcuts do
-                        if v[2] == menu.get_value(remover_shortcut) then
-                            does_shortcut_exist = true
-                        end
-                        if does_shortcut_exist then
-                            menu.delete(v[1])
-                            v[1] = 0
-                            table.remove(shortcuts, k)
-                            write_to_shortcut_file(io.open(shortcut_path, "w"))
-                            util.toast('Shortcut "' .. menu.get_value(remover_shortcut) .. '" removed.')
-                        else
-                            util.toast("Shortcut not found.")
-                        end
-                    end
-                else
-                    util.toast("There are no shortcuts. Try creating one before deleting!")
-                end
+                delete_shortcut(menu.get_value(remover_shortcut))
             end)
 
     else --clear everything, then restart when toggle is enabled
