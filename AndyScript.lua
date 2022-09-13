@@ -475,11 +475,11 @@ local function entity_spooner(input)
         add_spooner_list(spooned, entitiy_handle)
         show_entity_spooner(entitiy_handle, input, list)
     else
-        util.toast("Couldn't load given hash. Are you sure you typed a valid entity?")
+        toast_formatted("Couldn't load given hash \"%s\". Are you sure you typed a valid entity?", input)
     end
 end
 
-local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Name", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) entity_spooner(tostring(input)) end)
+local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Name", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) if input ~= string.strip(input, " ") then util.toast("Input can't be empty.") else entity_spooner(tostring(input)) end end) ---@diagnostic disable-line
 --[[Spooner divider]] menu.divider(spooner_main_list, "Spawned Entities will appear here:")
 
 --Fun tab
