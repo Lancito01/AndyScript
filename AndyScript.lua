@@ -479,7 +479,7 @@ local function entity_spooner(input)
     end
 end
 
-local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Hash", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) entity_spooner(tostring(input)) end)
+local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Name", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) entity_spooner(tostring(input)) end)
 --[[Spooner divider]] menu.divider(spooner_main_list, "Spawned Entities will appear here:")
 
 --Fun tab
