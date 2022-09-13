@@ -439,7 +439,7 @@ menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mod
 )
 
 --spooner
-local spooner_main_list = menu.list(world_tab, "Andy Spooner")
+local spooner_main_list = menu.list(world_tab, "Andy's Spooner")
 local spooned = {}
 
 local function show_entity_spooner(handle, input, list)
