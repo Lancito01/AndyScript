@@ -571,7 +571,8 @@ local function read_shortcut_file(file_path)
             util.toast("Error reading from shortcuts file at line " .. what_line_am_i_reading .. ".")
         end
     end
-    util.toast("Imported " .. imported_shortcut_count .. " previous shortcuts.")
+    local message_for_importing = imported_shortcut_count > 1 and "Imported " .. imported_shortcut_count .. " previous shortcuts." or "Imported " .. imported_shortcut_count .. " previous shortcut."
+    util.toast(message_for_importing)
         else
             util.toast("Failed to open file.")
         end
