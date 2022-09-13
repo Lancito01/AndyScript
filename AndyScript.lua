@@ -658,8 +658,12 @@ function(state)
         --[[Remover button]] menu.action(remove_a_shortcut, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
             function()
                 if shortcuts[1] then
+                    local does_shortcut_exist = false
                     for k, v in shortcuts do
                         if v[2] == menu.get_value(remover_shortcut) then
+                            does_shortcut_exist = true
+                        end
+                        if does_shortcut_exist then
                             menu.delete(v[1])
                             v[1] = 0
                             table.remove(shortcuts, k)
