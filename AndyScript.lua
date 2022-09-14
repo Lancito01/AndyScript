@@ -156,8 +156,7 @@ end
 
 --On Script Start
 local user_name = players.get_name(players.user())
-local possible_welcome_phrases = {
-    "OwO, who's this?",
+local possible_welcome_phrases = { -- 12 normal, 1 rare
     "Glad you're here, " .. user_name .. ".",
     "Welcome, " .. user_name ..". We hope you brought pizza.",
     user_name .. " just slid into the script.",
@@ -169,11 +168,12 @@ local possible_welcome_phrases = {
     "Good to see you, " .. user_name .. ".",
     user_name .. " just showed up!",
     user_name .. " is here.",
-    user_name .. " hopped into the script."
+    user_name .. " hopped into the script.",
+    "OwO, who's this?\nThis is a rare welcome phrase. Feel free to flex it in AndyScript Discord. :D"
 }
-local chosen_welcome_phrase = math.random(#possible_welcome_phrases)
-util.toast("Loaded AndyScript " .. script_version .. "\n\n" ..
-possible_welcome_phrases[chosen_welcome_phrase])
+
+local chosen_welcome_phrase_index = math.random(1,100) == 1 and 13 or math.random(#possible_welcome_phrases)
+util.toast("Loaded AndyScript " .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index])
 
 --Functions
 local function announce(string)
