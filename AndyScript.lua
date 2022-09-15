@@ -1,4 +1,4 @@
-local script_version = "v0.0.16"
+local script_version = "v0.0.17"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -172,7 +172,8 @@ local possible_welcome_phrases = { -- 12 normal, 1 rare
     "OwO, who's this?\nThis is a rare welcome phrase. Feel free to flex it in AndyScript Discord. :D"
 }
 
-local chosen_welcome_phrase_index = math.random(1,100) == 1 and 13 or math.random(#possible_welcome_phrases)
+local chosen_welcome_phrase_index = 0
+if math.random(1,100) == 1 then chosen_welcome_phrase_index = 13 else chosen_welcome_phrase_index = math.random(#possible_welcome_phrases) end
 util.toast("Loaded AndyScript " .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index])
 
 --Functions
@@ -268,16 +269,6 @@ function(state)
 end
 )
 
---Semigodmode
-menu.toggle_loop(self_tab, "Heal Loop", {"healloop"}, "",
-function()
-    if ENTITY.GET_ENTITY_HEALTH(players.user_ped()) ~= 0 then
-        local max_health = ENTITY.GET_ENTITY_MAX_HEALTH(players.user_ped())
-        ENTITY.SET_ENTITY_HEALTH(players.user_ped(), max_health, 0)
-    end
-end
-)
-
 --Heal
 menu.action(self_tab, "Max Health", {"healself"}, "Heals your ped to its max health.",
 function()
@@ -287,12 +278,20 @@ function()
 end
 )
 
---Max armor
-menu.action(self_tab, "Max Armor", {}, "Maxes out your armor.",
+--Semigodmode heal loop
+local is_heal_loop_on = false
+menu.toggle_loop(self_tab, "Heal Loop", {"healloop"}, "",
 function()
-    PED.SET_PED_ARMOUR(players.user_ped(), 100)
-    announce("Armor filled.")
-end
+    if not is_heal_loop_on then
+        announce("Healing ped.")
+        is_heal_loop_on = true
+    end
+    if ENTITY.GET_ENTITY_HEALTH(players.user_ped()) ~= 0 then
+        local max_health = ENTITY.GET_ENTITY_MAX_HEALTH(players.user_ped())
+        ENTITY.SET_ENTITY_HEALTH(players.user_ped(), max_health, 0)
+    end
+    util.yield()
+end, function() is_heal_loop_on = false end
 )
 
 --Clean
@@ -302,6 +301,21 @@ function()
     announce("Ped cleaned.")
 end
 )
+
+--Clean loop
+menu.toggle(self_tab, "Clean Loop", {}, "Kepes your ped clean at all costs.", function(state) local is_on = state announce("Cleaning ped.") while is_on do PED.CLEAR_PED_BLOOD_DAMAGE(players.user_ped()) util.yield() end end)
+
+--Max armor
+menu.action(self_tab, "Max Armor", {}, "Maxes out your armor.",
+function()
+    PED.SET_PED_ARMOUR(players.user_ped(), 100)
+    announce("Armor filled.")
+end
+)
+
+--Armor loop
+local is_armor_loop_on = false
+menu.toggle_loop(self_tab, "Armor Loop", {}, "Keeps your armor full at all costs.", function() if not is_armor_loop_on then announce("Filling ped's armor.") is_armor_loop_on = true end PED.SET_PED_ARMOUR(players.user_ped(), 100) end, function() is_armor_loop_on = false end)
 
 --Angry mode
 menu.toggle_loop(self_tab, "Disable \"Angry Mode\"", {}, "Disables the state where the ped is angry and moves quickly after shooting.",function()
@@ -400,7 +414,7 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
     end, "0"
 )
 
---World
+--World tab
 --Change local gravity
 local gravity_tab_under_world = menu.list(world_tab, "Gravity", {}, "Changes world's gravity.")
 menu.toggle_loop(gravity_tab_under_world, "Toggle", {}, "Can be really annoying to other players. Recommended to use with friends to not ruin anyone elses fun. :)",
@@ -517,10 +531,55 @@ local function delete_every_entity_from_spooner()
         util.toast("There are no entities to delete.")
     end
 end
-
 local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Name", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) if input ~= string.strip(input, " ") then util.toast("Input can't be empty.") else entity_spooner(tostring(input)) end end) ---@diagnostic disable-line
 menu.action(spooner_main_list, "Delete All", {}, "Deletes every spawned entity from the list and in-game (if not manually deleted yet).", function() delete_every_entity_from_spooner() end)
 --[[Spooner divider]] menu.divider(spooner_main_list, "Spawned Entities will appear here:")
+
+--consistent freeze clock
+local function read_time(file_path)
+    local filehandle = io.open(file_path, "r")
+    if filehandle then
+        local time = filehandle:read()
+        filehandle:close()
+        return tostring(time)
+    else
+        return false
+    end
+end
+
+local function save_current_time(file_path, time)
+    filehandle = io.open(file_path, "w")
+    filehandle:write(time)
+    filehandle:flush()
+    filehandle:close()
+end
+
+local function get_clock()
+    return tostring(CLOCK.GET_CLOCK_HOURS() .. ":" .. CLOCK.GET_CLOCK_MINUTES() .. ":".. CLOCK.GET_CLOCK_SECONDS())
+end
+
+local time_path = filesystem.store_dir() .. "AndyScript\\time.txt"
+local is_freeze_clock_on = false
+menu.toggle(world_tab, "Consistent Freeze Clock", {}, "Freezes the clock using Stand's function, then saves the time for next execution. Change the current time using the \"time\" command, or in \"World > Atmosphere > Clock > Time\".",
+function(state)
+    is_freeze_clock_on = state
+    if state then
+        if filesystem.exists(time_path) then
+            local time = read_time(time_path)
+            menu.trigger_command(menu.ref_by_path("World>Atmosphere>Clock>Time", 38), time)
+        else
+            save_current_time(time_path, get_clock())
+        end
+    else
+        menu.trigger_command(menu.ref_by_path("World>Atmosphere>Clock>Lock Time", 38), "false")
+    end
+    while is_freeze_clock_on do
+        menu.trigger_command(menu.ref_by_path("World>Atmosphere>Clock>Lock Time", 38), "true")
+        save_current_time(time_path, get_clock())
+        util.yield(1000)
+    end
+end)
+-- end of freeze clock
 
 --Fun tab
 --Ride cow
@@ -588,7 +647,7 @@ local function create_shortcut(shortcut_title, shortcut_new, shortcut_old)
     else
         table.insert(shortcuts, {new_button, shortcut_new, shortcut_title, shortcut_old})
     end
-    write_to_shortcut_file(io.open(shortcut_path, "w"))
+    write_to_shortcut_file(shortcut_path)
 end
 
 local function delete_shortcut(shortcut)
@@ -600,22 +659,27 @@ local function delete_shortcut(shortcut)
             end
             c += 1
         end
+        return false
     end
     local table_which_includes_shortcut = where_is_shortcut_to_delete(shortcut)
     if shortcuts[1] then
-        if shortcuts[table_which_includes_shortcut][2] == shortcut then
-            menu.delete(shortcuts[table_which_includes_shortcut][1])
-            shortcuts[table_which_includes_shortcut][1] = 0
-            table.remove(shortcuts, table_which_includes_shortcut)
-            write_to_shortcut_file(io.open(shortcut_path, "w"))
-            util.toast('Shortcut "' .. shortcut .. '" removed.')
+        if table_which_includes_shortcut then
+            if shortcuts[table_which_includes_shortcut][2] == shortcut then
+                menu.delete(shortcuts[table_which_includes_shortcut][1])
+                shortcuts[table_which_includes_shortcut][1] = 0
+                table.remove(shortcuts, table_which_includes_shortcut)
+                write_to_shortcut_file(shortcut_path)
+                util.toast('Shortcut "' .. shortcut .. '" removed.')
+            else
+                util.toast("Shortcut not found.")
+            end
         else
-            util.toast("Shortcut not found.")
+            util.toast("Shortcut doens't exist.")
         end
     else
         util.toast("There are no shortcuts. Try creating one before deleting!")
     end
-    write_to_shortcut_file(io.open(shortcut_path, "w"))
+    write_to_shortcut_file(shortcut_path)
 end
 
 local function import_shortcuts_from_file(shortcut_new, shortcut_name, shortcut_old)
@@ -623,40 +687,46 @@ local function import_shortcuts_from_file(shortcut_new, shortcut_name, shortcut_
 end
 
 local function read_shortcut_file(file_path)
-    if filesystem.exists(file_path) then
-        local filehandle = io.open(shortcut_path, "r") -- Open file in read-only mode
-        if filehandle then
-    local what_line_am_i_reading = 0
-    local imported_shortcut_count = 0
-    for line in filehandle:lines() do
-        what_line_am_i_reading += 1
-        local data = string.split(line, ",") ---@diagnostic disable-line
-        if data[2] ~= "" and data[3] ~= "" then
-            import_shortcuts_from_file(data[1], data[2], data[3])
-            imported_shortcut_count += 1
-        else
-            util.toast("Error reading from shortcuts file at line " .. what_line_am_i_reading .. ".")
+    local filehandle = io.open(shortcut_path, "r") -- Open file in read-only mode
+    if filehandle then
+        local what_line_am_i_reading = 0
+        local imported_shortcut_count = 0
+        for line in filehandle:lines() do
+            what_line_am_i_reading += 1
+            local data = string.split(line, ",") ---@diagnostic disable-line
+            if data[2] ~= "" and data[3] ~= "" then
+                import_shortcuts_from_file(data[1], data[2], data[3])
+                imported_shortcut_count += 1
+            else
+                util.toast("Error reading from shortcuts file at line " .. what_line_am_i_reading .. ".")
+            end
         end
-    end
-    local message_for_importing = imported_shortcut_count > 1 and "Imported " .. imported_shortcut_count .. " previous shortcuts." or "Imported " .. imported_shortcut_count .. " previous shortcut."
-    util.toast(message_for_importing)
-        else
-            util.toast("Failed to open file.")
-        end
+        local message_for_importing = imported_shortcut_count > 1 and "Imported " .. imported_shortcut_count .. " previous shortcuts." or "Imported " .. imported_shortcut_count .. " previous shortcut."
+        util.toast(message_for_importing)
+        io.close(filehandle)
+    else
+        util.toast("Failed to open file.")
     end
 end
 
-function write_to_shortcut_file(filehandle)
-    for index, value in ipairs(shortcuts) do
-        if value[1] ~= -1 then
-            if type(value[4]) ~= "table" then
-                filehandle:write(value[2] .. "," .. value[3] .. "," .. value[4] .. "\n")
-            else
-                filehandle:write(value[2] .. "," .. value[3] .. "," .. table.concat(value[4]) .. "\n")
+
+function write_to_shortcut_file(file_path)
+    local filehandle = io.open(file_path, "w")
+    if filehandle then
+        for index, value in ipairs(shortcuts) do
+            if value[1] ~= -1 then
+                if type(value[4]) ~= "table" then
+                    filehandle:write(value[2] .. "," .. value[3] .. "," .. value[4] .. "\n")
+                else
+                    filehandle:write(value[2] .. "," .. value[3] .. "," .. table.concat(value[4]) .. "\n")
+                end
             end
         end
+        filehandle:flush()
+        io.close(filehandle)
+    else
+        util.toast("Error while writing to shortcut file.")
     end
-    filehandle:flush()
 end
 
 local have_shortcuts_been_enabled = false
@@ -722,7 +792,7 @@ function(state)
         --[[Remover title]] menu.divider(remove_a_shortcut, "Fill this in:")
         local remover_shortcut = menu.text_input(remove_a_shortcut, "Shortcut", {"removershortcut"}, "Removes the entry belonging to the shortcut you input.", function() end)
         --[[Remover subtitle]] menu.divider(remove_a_shortcut, "Once you're done, press this:")
-        --[[Remover button]] menu.action(remove_a_shortcut, "Remove", {}, "Removes the inputted shortcut from the entry and your shortcut file.", 
+        --[[Remover button]] menu.action(remove_a_shortcut, "Remove", {}, "Looks for the first match with your given input and deletes it from the shortcut list.",
             function()
                 delete_shortcut(menu.get_value(remover_shortcut))
             end)
@@ -1009,6 +1079,6 @@ end)
 
 --On script end
 util.on_stop(function()
-    write_to_shortcut_file(io.open(shortcut_path, "w"))
+    write_to_shortcut_file(shortcut_path)
     util.toast("See you later!")
 end)
