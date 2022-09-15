@@ -169,11 +169,11 @@ local possible_welcome_phrases = { -- 12 normal, 1 rare
     user_name .. " just showed up!",
     user_name .. " is here.",
     user_name .. " hopped into the script.",
-    "OwO, who's this?\nThis is a rare welcome phrase. Feel free to flex it in AndyScript Discord. :D"
+    "You found the rare welcome phrase! Feel free to flex it in AndyScript Discord. :D"
 }
 
-local chosen_welcome_phrase_index = 0
-if math.random(1,100) == 1 then chosen_welcome_phrase_index = 13 else chosen_welcome_phrase_index = math.random(#possible_welcome_phrases) end
+local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcome_phrases or math.random(#possible_welcome_phrases - 1)
+
 util.toast("Loaded AndyScript " .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index])
 
 --Functions
