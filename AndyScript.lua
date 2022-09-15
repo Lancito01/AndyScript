@@ -256,6 +256,7 @@ function(state)
     menu.trigger_command(menu.ref_by_path("Self>Auto Heal", 38), switch_for_godmode)
     menu.trigger_command(menu.ref_by_path("Vehicle>Indestructible", 38), switch_for_godmode)
     menu.trigger_command(menu.ref_by_path("Self>Glued To Seats", 38), switch_for_godmode)
+    menu.trigger_command(menu.ref_by_path("Stand>Lua Scripts>AndyScript>Self>Clean Loop",38), switch_for_godmode)
     announce("Godmode " .. switch_for_godmode)
 end
 )
@@ -303,7 +304,7 @@ end
 )
 
 --Clean loop
-menu.toggle(self_tab, "Clean Loop", {}, "Kepes your ped clean at all costs.", function(state) local is_on = state announce("Cleaning ped.") while is_on do PED.CLEAR_PED_BLOOD_DAMAGE(players.user_ped()) util.yield() end end)
+menu.toggle(self_tab, "Clean Loop", {}, "Kepes your ped clean at all costs.", function(state) local is_on = state if state then announce("Cleaning ped.") end while is_on do PED.CLEAR_PED_BLOOD_DAMAGE(players.user_ped()) util.yield() end end)
 
 --Max armor
 menu.action(self_tab, "Max Armor", {}, "Maxes out your armor.",
