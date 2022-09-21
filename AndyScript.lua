@@ -1,4 +1,4 @@
-local script_version = "v0.0.18"
+local script_version = "v0.0.19"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -452,6 +452,9 @@ menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mod
 )
 
 --spooner
+local spooner_divider = 0
+local spooner_delete_all_button = 0
+local spooner_tp_all_button = 0
 local spooner_main_list = menu.list(world_tab, "Andy's Spooner")
 local spooned = {} -- {{list_handle, entity_handle}, {list_handle, entity_handle}, {list_handle, entity_handle}}
 
@@ -480,31 +483,16 @@ local function generate_entity_spooner_features(list, handle)
         menu.delete(list)
         table.remove(spooned, where_is())
         announce("Entity removed.")
+        if #spooned == 0 then
+            menu.delete(spooner_divider)
+            menu.delete(spooner_delete_all_button)
+            menu.delete(spooner_tp_all_button)
+        end
     end)
 end
 
 local function add_spooner_list(list_handle, handle)
     table.insert(spooned, {list_handle, handle})
-end
-
-local function entity_spooner(input)
-    local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
-    local hash = util.joaat(input)
-    local entity_handle = 0
-    if request_model(hash) then
-        if STREAMING.IS_MODEL_A_PED(hash) then
-            entity_handle = entities.create_ped(4, hash, coords, 0)
-        elseif STREAMING.IS_MODEL_A_VEHICLE(hash) then
-            entity_handle = entities.create_vehicle(hash, coords, 0)
-        else -- must be an object
-            entity_handle = entities.create_object(hash, coords)
-        end
-    local list = menu.list(spooner_main_list, input)
-        add_spooner_list(list, entity_handle)
-        generate_entity_spooner_features(list, entity_handle)
-    else
-        toast_formatted("Couldn't load given hash \"%s\". Are you sure you typed a valid entity?", input)
-    end
 end
 
 local function delete_every_entity_from_spooner()
@@ -524,15 +512,62 @@ local function delete_every_entity_from_spooner()
         for i=1, entries do
             table.remove(spooned)
         end
+        menu.delete(spooner_divider)
+        menu.delete(spooner_delete_all_button)
+        menu.delete(spooner_tp_all_button)
         local message = entries > 1 and "Deleted "..entries.." entities." or "Deleted "..entries.." entity."
         util.toast(message)
     else
         util.toast("There are no entities to delete.")
     end
 end
+
+local function tp_every_entity_from_spooner()
+    if #spooned > 0 then
+        local entries = 0
+        local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+        for number, tbl in ipairs(spooned) do
+            for i, value in ipairs(tbl) do
+                if i == 2 then
+                    ENTITY.SET_ENTITY_COORDS(value, coords.x, coords.y, coords.z, 0, 0, 0, 0)
+                end
+            end
+            entries += 1
+        end
+
+        local message = entries > 1 and "Teleported "..entries.." entities." or "Teleported "..entries.." entity."
+        util.toast(message)
+    else
+        util.toast("There are no entities to teleport.")
+    end
+end
+
+local function entity_spooner(input)
+    local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+    local hash = util.joaat(input)
+    local entity_handle = 0
+    if request_model(hash) then
+        if #spooned == 0 then
+            spooner_delete_all_button = menu.action(spooner_main_list, "Delete All", {}, "Deletes every spawned entity from the list and in-game (if not manually deleted yet).", function() delete_every_entity_from_spooner() end)
+            spooner_tp_all_button = menu.action(spooner_main_list, "TP All To Me", {}, "Teleports every spawned entity from the list and in-game to you.", function() tp_every_entity_from_spooner() end)
+            spooner_divider = menu.divider(spooner_main_list, "Spawned Entities")
+        end
+        if STREAMING.IS_MODEL_A_PED(hash) then
+            entity_handle = entities.create_ped(4, hash, coords, 0)
+        elseif STREAMING.IS_MODEL_A_VEHICLE(hash) then
+            entity_handle = entities.create_vehicle(hash, coords, 0)
+        else -- must be an object
+            entity_handle = entities.create_object(hash, coords)
+        end
+        local list = menu.list(spooner_main_list, input)
+        add_spooner_list(list, entity_handle)
+        generate_entity_spooner_features(list, entity_handle)
+    else
+        toast_formatted("Couldn't load given hash \"%s\". Are you sure you typed a valid entity?", input)
+    end
+end
+
 local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Name", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) if input ~= string.strip(input, " ") then util.toast("Input can't be empty.") else entity_spooner(tostring(input)) end end) ---@diagnostic disable-line
-menu.action(spooner_main_list, "Delete All", {}, "Deletes every spawned entity from the list and in-game (if not manually deleted yet).", function() delete_every_entity_from_spooner() end)
---[[Spooner divider]] menu.divider(spooner_main_list, "Spawned Entities will appear here:")
 
 --consistent freeze clock
 local function read_time(file_path)
