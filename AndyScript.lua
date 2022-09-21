@@ -1,4 +1,4 @@
-local script_version = "v0.0.17"
+local script_version = "v0.0.18"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -122,16 +122,14 @@ local function update_script(url)
 end
 
 update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyScript.lua")
-while WAITING_FOR_HTTP_RESULT do
+while WAITING_FOR_HTTP_RESULT or wait_for_restart do
     util.yield()
 end
 menu.delete(please_wait_while_updating_menu)
-while wait_for_restart do
-    util.yield()
-end
+
 -- End of auto-updater
 
-util.require_natives(1660775568)
+util.require_natives(1663599433)
 util.keep_running()
 
 local store = filesystem.store_dir()
@@ -364,7 +362,7 @@ function()
     local current_vehicle = get_vehicle_ped_is_in(players.user_ped())
     if current_vehicle ~= 0 then
         if last_vehicle_with_radio_off ~= current_vehicle and VEHICLE.GET_IS_VEHICLE_ENGINE_RUNNING(current_vehicle) then
-            if AUDIO._IS_VEHICLE_RADIO_ENABLED(current_vehicle) then
+            if AUDIO.IS_VEHICLE_RADIO_ON(current_vehicle) then
                 util.yield(1000)
                 AUDIO.SET_RADIO_TO_STATION_NAME("OFF")
                 announce("Radio off")
