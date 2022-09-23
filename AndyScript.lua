@@ -73,7 +73,7 @@ local function update_script(url)
         WAITING_FOR_HTTP_RESULT = false
         if status_code == 304 then
             -- No update found
-            toast_formatted("%s is up to date! v(%s)", SCRIPT_NAME, script_version)
+            toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version)
             return
         end
 
