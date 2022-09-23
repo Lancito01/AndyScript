@@ -172,7 +172,7 @@ local possible_welcome_phrases = { -- 12 normal, 1 rare
 
 local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcome_phrases or math.random(#possible_welcome_phrases - 1)
 
-util.toast("Loaded AndyScript " .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index])
+util.toast("Loaded AndyScript v" .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index])
 
 --Functions
 local function announce(string)
