@@ -1,4 +1,4 @@
-local script_version = "0.1"
+local script_version = "0.1.1"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -393,13 +393,11 @@ end)
 
 --Vehicle accel
 menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, "Changes how fast the car goes. 0 = Default",
-    function(input)
-        if vehicle_accel_button ~= 0 and vehicle_accel_button then
-            menu.delete(vehicle_accel_button)
-            vehicle_accel_button = 0
-        end
-        vehicle_accel_button = menu.action(vehicles_tab, "Apply Acceleration", {}, "",
-        function()
+    function(string)
+        local input = tonumber(string)
+        if type(input) == "nil" then
+            util.toast("Input must be a number. Try again!")
+        else
             local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
             if vehicle == 0 then
                 util.toast("Get in a car first.")
@@ -409,7 +407,6 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
                 announce("Acceleration altered. Give it a try!")
             end
         end
-        )
     end, "0"
 )
 
@@ -690,7 +687,7 @@ local function create_shortcut(shortcut_title, shortcut_new, shortcut_old)
     write_to_shortcut_file(shortcut_path)
 end
 
-local function delete_shortcut(shortcut)
+local function delete_shortcut(shortcut, isEditing)
     local function where_is_shortcut_to_delete(input)
         c = 1
         for k, v in shortcuts do
@@ -709,7 +706,9 @@ local function delete_shortcut(shortcut)
                 shortcuts[table_which_includes_shortcut][1] = 0
                 table.remove(shortcuts, table_which_includes_shortcut)
                 write_to_shortcut_file(shortcut_path)
-                util.toast('Shortcut "' .. shortcut .. '" removed.')
+                if not isEditing then
+                    util.toast('Shortcut "' .. shortcut .. '" removed.')
+                end
             else
                 util.toast("Shortcut not found.")
             end
@@ -783,10 +782,50 @@ local function does_shortcut_command_exist(shortcut)
     end
 end
 
+local function generate_editor_features(editor_menu)
+    local c = 1
+    for i, shortcut in shortcuts do
+        local list = menu.list(editor_menu, shortcut[3])
+        menu.action(list, "Delete Shortcut", {}, "Deletes the selected shortcut.", function() delete_shortcut(shortcut[2]) list:delete() end)
+        menu.divider(list, "Alternatively, fill these in:")
+        local new_name = menu.text_input(list, "New Shortcut Name", {"newshortcutname"..c}, "This will be the new shortcut name used to identify it.", function() end, shortcut[3])
+        local new_shortcut = menu.text_input(list, "New Shortcut", {"newshortcut"..c}, "This will be the new command used to activate the shortcut.", function() end, shortcut[2])
+        local new_command = menu.text_input(list, "New Shortcut Command", {"newshortcutcommand"..c}, "This will be the new command that the shortcut runs.", function() end, shortcut[4])
+        menu.divider(list, "Once you're done, press this:")
+        menu.action(list, "Edit Shortcut", {}, "Uses the given values to edit the selected shortcut and updates it.",
+        function()
+            delete_shortcut(shortcut[2], true)
+            create_shortcut(menu.get_value(new_name), menu.get_value(new_shortcut), menu.get_value(new_command))
+            menu.set_menu_name(list, menu.get_value(new_name))
+            util.toast("Edited shortcut.")
+        end)
+        c+=1
+    end
+end
+
+local function is_shortcut_name_taken(name)
+    for i, shortcut in shortcuts do
+        if string.lower(shortcut[3]) == string.lower(name) then
+            return true
+        end
+    end
+    return false
+end
+
+local function is_shortcut_taken(command)
+    for i, shortcut in shortcuts do
+        if string.lower(shortcut[2]) == string.lower(command) then
+            return true
+        end
+    end
+    return false
+end
+
 local have_shortcuts_been_enabled = false
+local have_shortcuts_been_generated_for_editor = false
 -- defining main lists
 local add_a_shortcut
-local remove_a_shortcut
+local edit_a_shortcut
 --toggle on or off
 menu.toggle(shortcut_menu, "Enable", {"andyshortcuts"}, "Enable \"Andy's Shortcuts\", which are command box shortcuts such as using \"dv\" instead of \"deletevehicle\".",
 function(state)
@@ -798,8 +837,7 @@ function(state)
     --To hide the buttons before you enable it
     if shortcut_status then
         add_a_shortcut = menu.list(shortcut_menu, "Add A Shortcut", {}, "Allows you to add custom shortcuts.")
-        remove_a_shortcut = menu.list(shortcut_menu, "Remove A Shortcut", {}, "Allows you to remove previously created shortcuts.")
-
+        edit_a_shortcut = menu.list(shortcut_menu, "Edit/Remove Shortcuts", {}, "Allows you to edit previously created shortcuts.", function() if not have_shortcuts_been_generated_for_editor then generate_editor_features(edit_a_shortcut) end have_shortcuts_been_generated_for_editor = true end)
         --maker
         --[[Maker title]] menu.divider(add_a_shortcut, "Fill these in:")
         local new_shortcut_title = menu.text_input(add_a_shortcut, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
@@ -818,25 +856,24 @@ function(state)
                 end
             elseif menu.get_value(new_shortcut_title) == "" then
                 util.toast("Error creating shortcut. Does it have a name?")
+            elseif is_shortcut_name_taken(menu.get_value(new_shortcut_title)) then
+                util.toast("Shortcut name is taken. Try again!")
+            elseif is_shortcut_taken(menu.get_value(new_shortcut_shortcut)) then
+                util.toast("Shortcut is taken. Try again!")
             else
                 create_shortcut(menu.get_value(new_shortcut_title), menu.get_value(new_shortcut_shortcut), new_shortcut_command)
                 util.toast('New shortcut "' .. menu.get_value(new_shortcut_title) .. '" created!')
+                edit_a_shortcut:delete()
+                have_shortcuts_been_generated_for_editor = false
+                --[[everything editor-related]] edit_a_shortcut = menu.attach_after(add_a_shortcut, menu.list(menu.shadow_root() --[[shadow root is used to create a "detached command" which can then be used in attach_after. more in stand lua api]], "Edit/Remove Shortcuts", {}, "Allows you to edit previously created shortcuts.", function() if not have_shortcuts_been_generated_for_editor then generate_editor_features(edit_a_shortcut) have_shortcuts_been_generated_for_editor = true end end))
             end
         end)
-
-        --remover
-        --[[Remover title]] menu.divider(remove_a_shortcut, "Fill this in:")
-        local remover_shortcut = menu.text_input(remove_a_shortcut, "Shortcut", {"removershortcut"}, "Removes the entry belonging to the shortcut you input.", function() end)
-        --[[Remover subtitle]] menu.divider(remove_a_shortcut, "Once you're done, press this:")
-        --[[Remover button]] menu.action(remove_a_shortcut, "Remove", {}, "Looks for the first match with your given input and deletes it from the shortcut list.", function() delete_shortcut(menu.get_value(remover_shortcut)) end)
-
     else --clear everything, then restart when toggle is enabled (when deleting a list, everything inside of it goes too)
         menu.delete(add_a_shortcut)
         add_a_shortcut = 0
-        menu.delete(remove_a_shortcut)
-        remove_a_shortcut = 0
+        menu.delete(edit_a_shortcut)
+        edit_a_shortcut = 0
     end
-
     -- Showing shortcuts at trigger
     if shortcut_status then --showing shortcut
         shortcut_title = menu.divider(shortcut_menu, "Available Shortcuts")
@@ -852,10 +889,8 @@ function(state)
             v[1] = 0
         end
     end
-
 end, false
 )
-
 -- About tab
 local credits_under_info_tab = menu.list(info_tab, "Credits")
 menu.readonly(info_tab, "Made by Andy <3", "Lancito01#0001")
