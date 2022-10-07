@@ -357,7 +357,7 @@ menu.divider(vehicles_tab, "Options")
 
 --Radio off automatically
 local last_vehicle_with_radio_off = 0
-menu.toggle_loop(vehicles_tab, "Turn Off Radio Automatically", {}, "Turns off the radio each time you get in a vehicle",
+menu.toggle_loop(vehicles_tab, "Turn Off Radio Automatically", {}, "Turns off the radio each time you get in a vehicle.",
 function()
     local current_vehicle = get_vehicle_ped_is_in(players.user_ped())
     if current_vehicle ~= 0 then
