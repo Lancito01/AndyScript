@@ -10,7 +10,7 @@ Join the [Discord](https://discord.gg/9vzATnaM9c) (please)
 - Heal ped to max health (only health, no armor)
 - Spawn peds inside player vehicle
 - Chaos mode
-- Andy Spooner
+- Andy's Spooner
 - ... and more!
 
 To install, simply click "[Download ZIP](https://github.com/Lancito01/AndyScript/archive/refs/heads/main.zip)" and extract the lua file under "Stand/Lua Scripts".
