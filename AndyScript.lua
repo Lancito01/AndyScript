@@ -73,7 +73,7 @@ local function update_script(url)
         WAITING_FOR_HTTP_RESULT = false
         if status_code == 304 then
             -- No update found
-            toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version)
+            if not SCRIPT_SILENT_START then toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version) end
             return
         end
 
@@ -172,7 +172,7 @@ local possible_welcome_phrases = { -- 12 normal, 1 rare
 
 local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcome_phrases or math.random(#possible_welcome_phrases - 1)
 
-util.toast("Loaded AndyScript v" .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index])
+if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript v" .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index]) end
 
 --Functions
 local function announce(string)
@@ -687,7 +687,7 @@ local function create_shortcut(shortcut_title, shortcut_new, shortcut_old)
     write_to_shortcut_file(shortcut_path)
 end
 
-local function delete_shortcut(shortcut, isEditing)
+local function delete_shortcut(shortcut, is_editing)
     local function where_is_shortcut_to_delete(input)
         c = 1
         for k, v in shortcuts do
@@ -706,7 +706,7 @@ local function delete_shortcut(shortcut, isEditing)
                 shortcuts[table_which_includes_shortcut][1] = 0
                 table.remove(shortcuts, table_which_includes_shortcut)
                 write_to_shortcut_file(shortcut_path)
-                if not isEditing then
+                if not is_editing then
                     util.toast('Shortcut "' .. shortcut .. '" removed.')
                 end
             else
