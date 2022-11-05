@@ -1,4 +1,4 @@
-local script_version = "0.1.1"
+local script_version = "0.1.2"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -153,28 +153,66 @@ util.log = function(str)
 end
 
 --On Script Start
-local user_name = players.get_name(players.user())
+local settings_filepath = AndyScript_store.."/settings.txt"
+if not filesystem.exists(settings_filepath) then
+    local filehandle = io.open(settings_filepath, "w")
+    if filehandle then
+        filehandle:write("hide_name_on_script_startup=false\n")
+        filehandle:close()
+    end
+end
+
+local function read_settings_file()
+    local filehandle = io.open(settings_filepath)
+    local tbl = {}
+    if filehandle then
+        for line_text in filehandle:lines() do ---@diagnostic disable-next-line
+            local prefix, suffix = string.partition(line_text, "=")
+            if prefix == "hide_name_on_script_startup" then
+                tbl.hide_name_on_script_startup = suffix == "true"
+            end
+        end
+        return tbl
+    else
+        util.toast("Error reading settings file.")
+    end
+end
+local settings = read_settings_file()
+
+local user_name = settings.hide_name_on_script_startup and "User" or players.get_name(players.user())
 local possible_welcome_phrases = { -- 12 normal, 1 rare
-    "Glad you're here, " .. user_name .. ".",
-    "Welcome, " .. user_name ..". We hope you brought pizza.",
-    user_name .. " just slid into the script.",
-    "Welcome, " .. user_name .. ". Hi!",
-    user_name .. " joined the party.",
-    "Glad you're here, " .. user_name .. ".",
-    "Yay you made it, " .. user_name .. "!",
-    user_name .. " just landed.",
-    "Good to see you, " .. user_name .. ".",
-    user_name .. " just showed up!",
-    user_name .. " is here.",
-    user_name .. " hopped into the script.",
-    "You found the rare welcome phrase! Feel free to flex it in AndyScript Discord. :D"
+    "Glad you're here, %s.",
+    "Welcome, %s. We hope you brought pizza.",
+    "%s just slid into the script.",
+    "Welcome, %s. Hi!",
+    "%s joined the party.",
+    "Glad you're here, %s.",
+    "Yay you made it, %s!",
+    "%s just landed.",
+    "Good to see you, %s.",
+    "%s just showed up!",
+    "%s is here.",
+    "%s hopped into the script.",
+    "Hey %s, you found the rare welcome phrase! Feel free to flex it in AndyScript Discord. :D"
 }
 
 local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcome_phrases or math.random(#possible_welcome_phrases - 1)
-
-if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript v" .. script_version .. "\n\n" .. possible_welcome_phrases[chosen_welcome_phrase_index]) end
+local welcome_phrase = string.format(possible_welcome_phrases[chosen_welcome_phrase_index], user_name)
+if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript-dev\n\n" .. welcome_phrase) end
 
 --Functions
+local function saving_settings_to_file()
+    local filehandle = io.open(settings_filepath, "w")
+    if filehandle then
+        for setting, value in pairs(settings) do
+            filehandle:write(setting.."="..tostring(value).."\n")
+        end
+        filehandle:close()
+    else
+        util.toast("Error saving settings to settings file.")
+    end
+end
+
 local function announce(string)
     if announce_actions then
         util.toast(string)
@@ -228,7 +266,7 @@ local function on_transition_exit()
     if give_weapons_after_transition then
         util.yield(1000)
         menu.trigger_command(menu.ref_by_path("Self>Weapons>Get Weapons>All Weapons", 38))
-        announce("All weapons  given.")
+        announce("All weapons given.")
     end
 end
 
@@ -317,7 +355,7 @@ local is_armor_loop_on = false
 menu.toggle_loop(self_tab, "Armor Loop", {}, "Keeps your armor full at all costs.", function() if not is_armor_loop_on then announce("Filling ped's armor.") is_armor_loop_on = true end PED.SET_PED_ARMOUR(players.user_ped(), 100) end, function() is_armor_loop_on = false end)
 
 --Angry mode
-menu.toggle_loop(self_tab, "Disable \"Angry Mode\"", {}, "Disables the state where the ped is angry and moves quickly after shooting.",function()
+menu.toggle_loop(self_tab, "Disable \"Angry Mode\"", {}, "Disables the state where the ped is angry and moves quickly after getting shot nearby or directly.",function()
     PED.SET_MOVEMENT_MODE_OVERRIDE(players.user_ped(), "DEFAULT")
 end, function()
     PED.SET_MOVEMENT_MODE_OVERRIDE(players.user_ped(), 0)
@@ -450,8 +488,7 @@ menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mod
 
 --spooner
 local spooner_divider = 0
-local spooner_delete_all_button = 0
-local spooner_tp_all_button = 0
+local spooner_all_entities = 0
 local spooner_main_list = menu.list(world_tab, "Andy's Spooner")
 local spooned = {} -- {{list_handle, entity_handle}, {list_handle, entity_handle}, {list_handle, entity_handle}}
 
@@ -482,8 +519,7 @@ local function generate_entity_spooner_features(list, handle)
         announce("Entity removed.")
         if #spooned == 0 then
             menu.delete(spooner_divider)
-            menu.delete(spooner_delete_all_button)
-            menu.delete(spooner_tp_all_button)
+            menu.delete(spooner_all_entities)
         end
     end)
 end
@@ -510,8 +546,7 @@ local function delete_every_entity_from_spooner()
             table.remove(spooned)
         end
         menu.delete(spooner_divider)
-        menu.delete(spooner_delete_all_button)
-        menu.delete(spooner_tp_all_button)
+        menu.delete(spooner_all_entities)
         local message = entries > 1 and "Deleted "..entries.." entities." or "Deleted "..entries.." entity."
         util.toast(message)
     else
@@ -545,8 +580,9 @@ local function entity_spooner(input)
     local entity_handle = 0
     if request_model(hash) then
         if #spooned == 0 then
-            spooner_delete_all_button = menu.action(spooner_main_list, "Delete All", {}, "Deletes every spawned entity from the list and in-game (if not manually deleted yet).", function() delete_every_entity_from_spooner() end)
-            spooner_tp_all_button = menu.action(spooner_main_list, "TP All To Me", {}, "Teleports every spawned entity from the list and in-game to you.", function() tp_every_entity_from_spooner() end)
+            spooner_all_entities = menu.list(spooner_main_list, "All Entities", {}, "Options for every entity spawned.", function() end)
+            menu.action(spooner_all_entities, "TP All To Me", {}, "Teleports every spawned entity from the list and in-game to you.", function() tp_every_entity_from_spooner() end)
+            menu.action(spooner_all_entities, "Delete All", {}, "Deletes every spawned entity from the list and in-game (if not manually deleted yet).", function() delete_every_entity_from_spooner() end)
             spooner_divider = menu.divider(spooner_main_list, "Spawned Entities")
         end
         if STREAMING.IS_MODEL_A_PED(hash) then
@@ -891,6 +927,14 @@ function(state)
     end
 end, false
 )
+
+local hide_name_toggle = menu.toggle(settings_tab, "Hide Username On Startup", {}, "Hides your username that would show in the welcome phrase.", function(state, click_type)
+    if click_type ~= CLICK_BULK then
+        settings.hide_name_on_script_startup = state
+        saving_settings_to_file()
+    end
+end, settings.hide_name_on_script_startup)
+
 -- About tab
 local credits_under_info_tab = menu.list(info_tab, "Credits")
 menu.readonly(info_tab, "Made by Andy <3", "Lancito01#0001")
@@ -1143,5 +1187,6 @@ end)
 --On script end
 util.on_stop(function()
     write_to_shortcut_file(shortcut_path)
+    saving_settings_to_file()
     util.toast("See you later!")
 end)
