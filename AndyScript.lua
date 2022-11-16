@@ -198,7 +198,7 @@ local possible_welcome_phrases = { -- 12 normal, 1 rare
 
 local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcome_phrases or math.random(#possible_welcome_phrases - 1)
 local welcome_phrase = string.format(possible_welcome_phrases[chosen_welcome_phrase_index], user_name)
-if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript-dev\n\n" .. welcome_phrase) end
+if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript\n\n" .. welcome_phrase) end
 
 --Functions // Defining
 local explosion_names = {"Off",
