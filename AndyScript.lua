@@ -1,4 +1,4 @@
-local script_version = "0.1.2"
+local script_version = "0.1.3"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -200,7 +200,83 @@ local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcom
 local welcome_phrase = string.format(possible_welcome_phrases[chosen_welcome_phrase_index], user_name)
 if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript-dev\n\n" .. welcome_phrase) end
 
---Functions
+--Functions // Defining
+local explosion_names = {"Off",
+    "Grenade",
+    "Grenade Launcher",
+    "Sticky Bomb",
+    "Molotov",
+    "Rocket",
+    "Tankshell",
+    "Octane",
+    "Car",
+    "Plane",
+    "Petrol Pump",
+    "Bike",
+    "Steam",
+    "Flame",
+    "Water Hydrant",
+    "Gas Canister",
+    "Boat",
+    "Ship Destroyed",
+    "Truck",
+    "Bullet",
+    "Smoke Grenade Launcer",
+    "Smoke Grenade",
+    "BZ Gas",
+    "Flare",
+    "Gas Canister",
+    "EXtinguisher",
+    "Programmable AR",
+    "Train",
+    "Barrel",
+    "Propane",
+    "Blimp",
+    "Flame Explosion",
+    "Tanker",
+    "Plane Rocket",
+    "Vehicle Bullet",
+    "Gas Tanker",
+    "Bird Crap",
+    "Railgun",
+    "Blimp 2",
+    "Firework",
+    "Snowball",
+    "Priximity Mine",
+    "Valkyrie Cannon",
+    "Air Defense",
+    "Pipebomb",
+    "Vehicle Mine",
+    "Explosive Ammo",
+    "APC Shell",
+    "Cluster Bomb",
+    "Gas Bomb",
+    "Incendiary Bomb",
+    "Standard Bomb",
+    "Torpedo",
+    "Underwater Torpedo",
+    "Bombushka Cannon",
+    "Secondary Bomb Cluster",
+    "Hunter Barrage",
+    "Hunter Cannon",
+    "Rogue Cannon",
+    "Underwater Mine",
+    "Orbital Cannon",
+    "Wide Standard Bomb",
+    "Explosive Ammo Shotgun",
+    "Oppressor MK2 Cannon",
+    "Kinetic Mortar",
+    "Kinetic Vehicle Mine",
+    "EMP Vehicle Mine",
+    "Spike Vehicle Mine",
+    "Slick Vehicle Mine",
+    "TAR Vehicle Mine",
+    "Drone",
+    "Raygun",
+    "Buried Mine",
+    "Script Missile",
+}
+
 local function saving_settings_to_file()
     local filehandle = io.open(settings_filepath, "w")
     if filehandle then
@@ -283,6 +359,31 @@ menu.divider(menu.my_root(), "Information")
 local info_tab = menu.list(menu.my_root(), "About")
 
 --Self tab
+--Weapons tab
+local weapons_in_self_tab = menu.list(self_tab, "Weapons", {}, "", function() end)
+
+--Explosive bullets
+local current_explosive_ammo_chosen
+local coords = v3.new()
+menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 1,
+function(index, menu_name, click_type)
+    current_explosive_ammo_chosen = index - 1
+    local explosion_id = current_explosive_ammo_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
+    if current_explosive_ammo_chosen ~= 0 then
+        while current_explosive_ammo_chosen + 1 == index do
+            current_explosive_ammo_chosen = index - 1
+            if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(players.user_ped(), coords) then
+                local x, y, z = v3.get(coords)
+                FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), x, y, z, explosion_id, 1.0, true, false, 0)
+            end
+        util.yield()
+        end
+    else
+        announce("Explosive Ammo is off.")
+    end
+end
+)
+
 --Godmode
 menu.toggle(self_tab, "Godmode", {"andygodmode"}, "Toggles several Stand features such as Godmode, Gracefulness, and Vehicle Godmode all at the same time to make you invincible against mortals.", 
 function(state)
@@ -450,31 +551,36 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
 
 --World tab
 --Change local gravity
-local gravity_tab_under_world = menu.list(world_tab, "Gravity", {}, "Changes world's gravity.")
-menu.toggle_loop(gravity_tab_under_world, "Toggle", {}, "Can be really annoying to other players. Recommended to use with friends to not ruin anyone elses fun. :)",
-    function()
-        local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
-        if not is_gravity_toggled then
-            announce("Gravity set.")
-            is_gravity_toggled = true
+local function request_control_of_table_once(tbl)
+    for index, entity in ipairs(tbl) do
+        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entity)
         end
-        if ENTITY.IS_ENTITY_AT_COORD(players.user_ped(), coords.x, coords.y, coords.z, 5.0, 5.0, 5.0, 0, 1, 0) then
-            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_vehicles_as_handles())
-            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_peds_as_handles())
-            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_objects_as_handles())
-            MISC.SET_GRAVITY_LEVEL(set_gravity_level)
         end
-    end,
-    function()
-        is_gravity_toggled = false
-        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_vehicles_as_handles())
-        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_peds_as_handles())
-        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entities.get_all_objects_as_handles())
-        MISC.SET_GRAVITY_LEVEL(0)
-    end)
-menu.action_slider(gravity_tab_under_world, "Gravity Level", {}, "Changes gravity's intensity for objects around you. Toggle on with button above. (:", {"Low", "Very low", "Off"},
-function(int)
-    set_gravity_level = int
+
+local gravity_current_index
+menu.list_select(world_tab, "World Gravity", {"worldgravity"},
+"Changes world's gravity. This option works best with other AndyScript users with the same mode. Can be really annoying/broken for other players (takes control of everything). Recommended to use only around friends to not ruin anyone elses fun. :)",
+{
+    {"Default",     {"default"}, ""},
+    {"Low",         {"low"},     ""},
+    {"Very low",    {"verylow"}, ""},
+    {"No gravity",  {"none"},    ""},
+}, 1,
+function(option_index, menu_name, previous_option, click_type)
+    gravity_current_index = option_index
+    if click_type ~= CLICK_BULK then --[[this so that way the user does not get a notification when stand resets the option at script stop]] toast_formatted("Set the world's gravity to %s.", string.lower(menu_name)) end
+    if option_index ~= 1 then
+        while gravity_current_index == option_index do
+            request_control_of_table_once(entities.get_all_vehicles_as_handles())
+            request_control_of_table_once(entities.get_all_objects_as_handles())
+            request_control_of_table_once(entities.get_all_peds_as_handles())
+            request_control_of_table_once(entities.get_all_pickups_as_handles())
+            MISC.SET_GRAVITY_LEVEL(option_index - 1)
+            util.yield()
+        end
+    else
+        MISC.SET_GRAVITY_LEVEL(option_index - 1)
+    end
 end)
 
 menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mode. Can be really annoying to other players. Recommended to use with friends to not ruin anyone elses fun. :)",
@@ -493,22 +599,16 @@ local spooner_main_list = menu.list(world_tab, "Andy's Spooner")
 local spooned = {} -- {{list_handle, entity_handle}, {list_handle, entity_handle}, {list_handle, entity_handle}}
 
 local function generate_entity_spooner_features(list, handle)
-    local teleport = menu.action(list, "Teleport To Me", {}, "",
-    function()
+    local teleport = menu.action(list, "Teleport To Me", {}, "", function()
         request_control(handle)
         local coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
         ENTITY.SET_ENTITY_COORDS(handle, coords.x, coords.y, coords.z, 0, 0, 0, 0)
     end)
-    menu.action(list, "Delete", {}, "",
-    function()
+    menu.action(list, "Delete", {}, "", function()
         local function where_is()
-            local counter = 0
-            for i,table in spooned do
-                counter += 1
-                for index, value in table do
-                    if value == list then
-                        return counter
-                    end
+            for i, tbl in ipairs(spooned) do
+                if tbl[1] == list then
+                    return i
                 end
             end
         end
@@ -542,8 +642,8 @@ local function delete_every_entity_from_spooner()
             end
             entries += 1
         end
-        for i=1, entries do
-            table.remove(spooned)
+        for i = 1, entries do
+            table.remove(spooned) -- alternatively, spooned = {}
         end
         menu.delete(spooner_divider)
         menu.delete(spooner_all_entities)
@@ -600,7 +700,7 @@ local function entity_spooner(input)
     end
 end
 
-local input_model_ref = menu.text_input(spooner_main_list, "Enter An Entity Name", {"spawnentity"}, "Given a hash, spanws the entity and then shows it below.", function(input) if input ~= string.strip(input, " ") then util.toast("Input can't be empty.") else entity_spooner(tostring(input)) end end) ---@diagnostic disable-line
+local input_model_ref = menu.text_input(spooner_main_list, "Enter A Model Name", {"spawnentity"}, "Given a model name, spawns the proper entity.", function(input, click_type) if string.strip(input, " ") == "" then if click_type ~= CLICK_BULK then util.toast("Input can't be empty.") end else entity_spooner(tostring(input)) end end) ---@diagnostic disable-line
 
 --consistent freeze clock
 local function read_time(file_path)
@@ -975,7 +1075,7 @@ local function is_player_modder(pid)
 end
 
 --Spawn ped in car
-local function spawn_ped_in_car(car, playerped, isclone)
+local function spawn_ped_in_vehicle(car, playerped, isclone)
     if car == 0 then
         util.toast("Player is not in a car.")
     elseif VEHICLE.ARE_ANY_VEHICLE_SEATS_FREE(car) then
@@ -995,20 +1095,20 @@ local function spawn_ped_in_car(car, playerped, isclone)
             announce("Ped spawned.")
         end
     else
-        util.toast("There are no available seats free in their car.")
+        util.toast("There are no free seats in their vehicle.")
     end
 end
 
-local function fill_car_with_peds(vehicle, playerped, isclone)
+local function fill_vehicle_with_peds(vehicle, playerped, isclone)
     if vehicle == 0 then
         util.toast("Player is not in a car.")
     elseif VEHICLE.ARE_ANY_VEHICLE_SEATS_FREE(vehicle) then
         while VEHICLE.ARE_ANY_VEHICLE_SEATS_FREE(vehicle) do
-            spawn_ped_in_car(vehicle, playerped, isclone)
+            spawn_ped_in_vehicle(vehicle, playerped, isclone)
         end
         announce("Car filled.")
     else
-        util.toast("There are no available seats free in their car.")
+        util.toast("There are no free seats in their vehicle.")
     end
 end
 
@@ -1132,8 +1232,33 @@ end
 
 local function generate_features(pid)
     menu.divider(menu.player_root(pid), "AndyScript")
+
+    local weapons_player_root = menu.list(menu.player_root(pid), "Weapons")
     local vehicles_player_root = menu.list(menu.player_root(pid), "Vehicles")
     local online_player_root = menu.list(menu.player_root(pid), "Online")
+
+    --Explosive bullets
+    local current_exp_chosen
+    local coords_exp = v3.new()
+    menu.list_select(weapons_player_root, "Give Explosive Ammo", {}, "", explosion_names, 1,
+    function(index, menu_name, click_type)
+        current_explosive_ammo_chosen = index - 1
+        local explosion_id = current_explosive_ammo_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
+        if current_explosive_ammo_chosen ~= 0 then
+            while current_explosive_ammo_chosen + 1 == index do
+                current_explosive_ammo_chosen = index - 1
+                if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(PLAYER.GET_PLAYER_PED(pid), coords) then
+                    local x, y, z = v3.get(coords)
+                    FIRE.ADD_OWNED_EXPLOSION(PLAYER.GET_PLAYER_PED(pid), x, y, z, explosion_id, 1.0, true, false, 0)
+                end
+            util.yield()
+            end
+        else
+            announce("Explosive Ammo for "..players.get_name(pid).." off.")
+        end
+    end
+    )
+
     menu.toggle(vehicles_player_root, "Include Player's Last Vehicle", {}, "Option to use last vehicle in case the player is not in a vehicle when running a function.", function(state) include_last_vehicle_for_player_functions = state end)
     menu.divider(vehicles_player_root, "Options")
     menu.action_slider(vehicles_player_root, "Clone Ped Inside Their Car", {}, "Clones the player's ped and places it in the first free seat it finds.", {"Once", "Fill vehicle"},
@@ -1141,9 +1266,9 @@ local function generate_features(pid)
             local player_ped = PLAYER.GET_PLAYER_PED(pid)
             local car = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions) -- alternatively: local car = use_last_vehicle_toggle and PED.GET_VEHICLE_PED_IS_IN(ped) or get_vehicle_ped_is_in(pid, false)        
             if index == 1 then
-                spawn_ped_in_car(car, player_ped, true)
+                spawn_ped_in_vehicle(car, player_ped, true)
             elseif index == 2 then
-                fill_car_with_peds(car, player_ped, true)
+                fill_vehicle_with_peds(car, player_ped, true)
             end
         end)
         menu.action_slider(vehicles_player_root, "Spawn Random Ped Inside Their Car", {}, "Spawns a random ped from our (not very) extensive list and places it on the first available seat it finds.", {"Once", "Fill vehicle"},
@@ -1151,9 +1276,9 @@ local function generate_features(pid)
             local player_ped = PLAYER.GET_PLAYER_PED(pid)
             local car = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions) -- alternatively: local car = use_last_vehicle_toggle and PED.GET_VEHICLE_PED_IS_IN(ped) or get_vehicle_ped_is_in(pid, false)        
             if index == 1 then
-                spawn_ped_in_car(car, player_ped, false)
+                spawn_ped_in_vehicle(car, player_ped, false)
             elseif index == 2 then
-                fill_car_with_peds(car, player_ped, false)
+                fill_vehicle_with_peds(car, player_ped, false)
             end
         end)
     menu.toggle_loop(vehicles_player_root, "Remote Horn Boost", {}, "Boosts their car forward when they honk the horn. Can be combined with \"Remote Car Jump\".", function() remote_horn_boost(pid) end)
@@ -1188,5 +1313,6 @@ end)
 util.on_stop(function()
     write_to_shortcut_file(shortcut_path)
     saving_settings_to_file()
+    delete_every_entity_from_spooner()
     util.toast("See you later!")
 end)
