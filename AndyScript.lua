@@ -1313,6 +1313,8 @@ end)
 util.on_stop(function()
     write_to_shortcut_file(shortcut_path)
     saving_settings_to_file()
-    delete_every_entity_from_spooner()
+    if #spooned > 0 then
+        delete_every_entity_from_spooner()
+    end
     util.toast("See you later!")
 end)
