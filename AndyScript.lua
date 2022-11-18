@@ -1,4 +1,4 @@
-local script_version = "0.1.3"
+local script_version = "0.1.4"
 
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
@@ -363,15 +363,14 @@ local info_tab = menu.list(menu.my_root(), "About")
 local weapons_in_self_tab = menu.list(self_tab, "Weapons", {}, "", function() end)
 
 --Explosive bullets
-local current_explosive_ammo_chosen
+do local current
 local coords = v3.new()
-menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 1,
-function(index, menu_name, click_type)
-    current_explosive_ammo_chosen = index - 1
-    local explosion_id = current_explosive_ammo_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
-    if current_explosive_ammo_chosen ~= 0 then
-        while current_explosive_ammo_chosen + 1 == index do
-            current_explosive_ammo_chosen = index - 1
+menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 1, function(index, menu_name, click_type)
+    current = index - 1
+    local explosion_id = current - 1 -- -1 because lua starts indexes at 1, not 0 
+    if current ~= 0 then
+        while current + 1 == index do
+            current = index - 1
             if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(players.user_ped(), coords) then
                 local x, y, z = v3.get(coords)
                 FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), x, y, z, explosion_id, 1.0, true, false, 0)
@@ -381,8 +380,7 @@ function(index, menu_name, click_type)
     else
         announce("Explosive Ammo is off.")
     end
-end
-)
+end) end
 
 --Godmode
 menu.toggle(self_tab, "Godmode", {"andygodmode"}, "Toggles several Stand features such as Godmode, Gracefulness, and Vehicle Godmode all at the same time to make you invincible against mortals.", 
@@ -549,6 +547,48 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
     end, "0"
 )
 
+--Random tuning
+menu.action(vehicles_tab, "/!\\ Tune Vehicle Randomly", {"randomtune"}, "Applies random tuning to your vehicle.", function()
+    local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
+    if vehicle == 0 then util.toast("You are not in a vehicle.") else
+        for mod_type = 0, 48 do
+            local num_of_mods = VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, mod_type)
+            local random_tune = math.random(-1, num_of_mods - 1)
+            VEHICLE.TOGGLE_VEHICLE_MOD(vehicle, mod_type, math.random(0,1) == 1)
+            VEHICLE.SET_VEHICLE_MOD(vehicle, mod_type, random_tune, false)
+        end
+        VEHICLE.SET_VEHICLE_COLOURS(vehicle, math.random(0,160), math.random(0,160))
+        VEHICLE.SET_VEHICLE_TYRE_SMOKE_COLOR(vehicle, math.random(0,255), math.random(0,255), math.random(0,255))
+        VEHICLE.SET_VEHICLE_WINDOW_TINT(vehicle, math.random(0,6))
+        for index = 0, 3 do
+            VEHICLE.SET_VEHICLE_NEON_ENABLED(vehicle, index, math.random(0,1) == 1)
+        end
+        VEHICLE.SET_VEHICLE_NEON_COLOUR(vehicle, math.random(0,255), math.random(0,255), math.random(0,255))
+        menu.trigger_command(menu.ref_by_path("Vehicle>Los Santos Customs>Appearance>Wheels>Wheels Colour", 42), math.random(0,160))
+    end
+end)
+menu.toggle_loop(vehicles_tab, "/!\\ Loop Random Tune", {"randomtuneloop"}, "Applies random tuning to your vehicle every 50ms.", function()
+    local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
+    if vehicle ~= 0 then
+        for mod_type = 0, 48 do
+            local num_of_mods = VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, mod_type)
+            local random_tune = math.random(-1, num_of_mods - 1)
+            VEHICLE.TOGGLE_VEHICLE_MOD(vehicle, mod_type, math.random(0,1) == 1)
+            VEHICLE.SET_VEHICLE_MOD(vehicle, mod_type, random_tune, false)
+        end
+        VEHICLE.SET_VEHICLE_COLOURS(vehicle, math.random(0,160), math.random(0,160))
+        VEHICLE.SET_VEHICLE_TYRE_SMOKE_COLOR(vehicle, math.random(0,255), math.random(0,255), math.random(0,255))
+        VEHICLE.SET_VEHICLE_WINDOW_TINT(vehicle, math.random(0,6))
+        for index = 0, 3 do
+            VEHICLE.SET_VEHICLE_NEON_ENABLED(vehicle, index, math.random(0,1) == 1)
+        end
+        VEHICLE.SET_VEHICLE_NEON_COLOUR(vehicle, math.random(0,255), math.random(0,255), math.random(0,255))
+        menu.trigger_command(menu.ref_by_path("Vehicle>Los Santos Customs>Appearance>Wheels>Wheels Colour", 42), math.random(0,160))
+    end
+    util.yield(50)
+end)
+
+
 --World tab
 --Change local gravity
 local function request_control_of_table_once(tbl)
@@ -583,11 +623,11 @@ function(option_index, menu_name, previous_option, click_type)
     end
 end)
 
-menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mode. Can be really annoying to other players. Recommended to use with friends to not ruin anyone elses fun. :)",
+menu.toggle_loop(world_tab, "Chaos", {}, "Makes nearby cars go goblin-goblin mode. Can be really annoying/broken for other players (takes control of everything). Recommended to use only around friends to not ruin anyone elses fun. :)",
     function()
         for i, veh in ipairs(entities.get_all_vehicles_as_handles()) do
             NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(veh)
-            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(veh, 1, 0.0, 10.0, 0.0, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
+            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(veh, 1, 0.0, 10.0, 0.0, true, true, true, true) --[[ alternatively, ]]--VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
         end
     end
 )
@@ -624,8 +664,8 @@ local function generate_entity_spooner_features(list, handle)
     end)
 end
 
-local function add_spooner_list(list_handle, handle)
-    table.insert(spooned, {list_handle, handle})
+local function add_spooner_list(list_handle, entity_handle)
+    table.insert(spooned, {list_handle, entity_handle})
 end
 
 local function delete_every_entity_from_spooner()
@@ -982,8 +1022,8 @@ function(state)
         --maker
         --[[Maker title]] menu.divider(add_a_shortcut, "Fill these in:")
         local new_shortcut_title = menu.text_input(add_a_shortcut, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
-        local new_shortcut_shortcut = menu.text_input(add_a_shortcut, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command you want to shorten.", function() end)
-        local new_shortcut_command_temp = menu.text_input(add_a_shortcut, "Command", {"customshortcutcommand"}, "Original command that you want to shorten. Use \",\" to separate multiple commands.", function() end)
+        local new_shortcut_shortcut = menu.text_input(add_a_shortcut, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command(s) you want to shorten.", function() end)
+        local new_shortcut_command_temp = menu.text_input(add_a_shortcut, "Command", {"customshortcutcommand"}, "Original command(s) that you want to shorten. Use \",\" to separate multiple commands.", function() end)
         --[[Maker button title]] menu.divider(add_a_shortcut, "Once you're done, press this:")
         --[[Maker button]] menu.action(add_a_shortcut, "Create", {}, "Creates the custom shortcut with the given specifications.",
         function()
@@ -1050,25 +1090,6 @@ menu.readonly(credits_under_info_tab, "Ren", "For helping me with majority of th
 menu.readonly(credits_under_info_tab, "Gabeeh", "For existing.")
 
 --Player root
---Remote horn boost
-local function remote_horn_boost(pid)
-    local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, false)
-    if AUDIO.IS_HORN_ACTIVE(player_vehicle) then
-        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(player_vehicle)
-        ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 1.0, 0.0, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
-    end
-end
-
-local function remote_car_jump(pid)
-    local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, false)
-    if AUDIO.IS_HORN_ACTIVE(player_vehicle) then
-        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(player_vehicle)
-        ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 0.0, 0.7, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
-    end
-end
-
 --Check for modder
 local function is_player_modder(pid)
     local suffix = players.is_marked_as_modder(pid) and " has set off modder detections." or " hasn't set off modder detections."
@@ -1245,15 +1266,14 @@ local function generate_features(pid)
     --Explosive bullets
     local current_exp_chosen
     local coords_exp = v3.new()
-    menu.list_select(weapons_player_root, "Give Explosive Ammo", {}, "", explosion_names, 1,
-    function(index, menu_name, click_type)
-        current_explosive_ammo_chosen = index - 1
-        local explosion_id = current_explosive_ammo_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
-        if current_explosive_ammo_chosen ~= 0 then
-            while current_explosive_ammo_chosen + 1 == index do
-                current_explosive_ammo_chosen = index - 1
-                if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(PLAYER.GET_PLAYER_PED(pid), coords) then
-                    local x, y, z = v3.get(coords)
+    menu.list_select(weapons_player_root, "Give Explosive Ammo", {}, "", explosion_names, 1, function(index, menu_name, click_type)
+        current_exp_chosen = index - 1
+        local explosion_id = current_exp_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
+        if current_exp_chosen ~= 0 then
+            while current_exp_chosen + 1 == index do
+                current_exp_chosen = index - 1
+                if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(PLAYER.GET_PLAYER_PED(pid), coords_exp) then
+                    local x, y, z = v3.get(coords_exp)
                     FIRE.ADD_OWNED_EXPLOSION(PLAYER.GET_PLAYER_PED(pid), x, y, z, explosion_id, 1.0, true, false, 0)
                 end
             util.yield()
@@ -1261,9 +1281,7 @@ local function generate_features(pid)
         else
             announce("Explosive Ammo for "..players.get_name(pid).." off.")
         end
-    end
-    )
-
+    end)
     menu.toggle(vehicles_player_root, "Include Player's Last Vehicle", {}, "Option to use last vehicle in case the player is not in a vehicle when running a function.", function(state) include_last_vehicle_for_player_functions = state end)
     menu.divider(vehicles_player_root, "Options")
     menu.action_slider(vehicles_player_root, "Clone Ped Inside Their Car", {}, "Clones the player's ped and places it in the first free seat it finds.", {"Once", "Fill vehicle"},
@@ -1286,8 +1304,38 @@ local function generate_features(pid)
                 fill_vehicle_with_peds(car, player_ped, false)
             end
         end)
-    menu.toggle_loop(vehicles_player_root, "Remote Horn Boost", {}, "Boosts their car forward when they honk the horn. Can be combined with \"Remote Car Jump\".", function() remote_horn_boost(pid) end)
-    menu.toggle_loop(vehicles_player_root, "Remote Car Jump", {}, "Makes their car jump when they honk the horn. Can be combined with \"Remote Horn Boost\".", function() remote_car_jump(pid) end)
+    do local strength, current_option
+    menu.list_select(vehicles_player_root, "Remote Horn Boost", {}, "Boosts their vehicle forward when they honk the horn. Can be combined with \"Remote Car Jump\".", {{"Off", {}, "Default."}, {"Low Boost", {}, "Too slow."}, {"Neutral Boost", {}, "Recommended."}, {"High Boost", {}, "Quite fast, maybe not enough."}, {"Extreme Boost", {}, "This one is not lineal, it's 50x the Neutral option."}}, 1, function(index)
+        local player_ped = PLAYER.GET_PLAYER_PED(pid)
+        local player_vehicle = get_vehicle_ped_is_in(player_ped, false)
+        strength = index == 5 and 50 or index/3
+        current_option = index
+        if current_option ~= 1 then
+            while index == current_option do
+                if AUDIO.IS_HORN_ACTIVE(player_vehicle) then
+                    NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(player_vehicle)
+                    ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, strength, 0.0, true, true, true, true) -- alternatively, VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
+                end
+                util.yield()
+            end
+        end
+    end) end
+    do local strength, current_option
+        menu.list_select(vehicles_player_root, "Remote Car Jump", {}, "Makes their vehicle jump when they honk the horn. Can be combined with \"Remote Horn Boost\".", {{"Off", {}, "Default."}, {"Low Boost", {}, "Too low."}, {"Neutral Boost", {}, "Recommended."}, {"High Boost", {}, "Quite high, maybe not enough."}, {"Extreme Boost", {}, "This one is not lineal, it's 50x the Neutral option."}}, 1, function(index)
+            local player_ped = PLAYER.GET_PLAYER_PED(pid)
+            local player_vehicle = get_vehicle_ped_is_in(player_ped, false)
+            strength = index == 5 and 50 or index/3
+            current_option = index
+            if current_option ~= 1 then
+                while index == current_option do
+                    if AUDIO.IS_HORN_ACTIVE(player_vehicle) then
+                        NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(player_vehicle)
+                        ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(player_vehicle, 1, 0.0, 0.0, strength, true, true, true, true)
+                    end
+                    util.yield()
+                end
+            end
+        end) end
     menu.action(vehicles_player_root, "Repair", {}, "Repairs their vehicle to full health.", function() repair_player_vehicle(pid) end)
     menu.action(vehicles_player_root, "Toggle Engine", {}, "If their engine is on, it toggles it off and viceversa.", function() toggle_player_vehicle_engine(pid) end)
     menu.action(vehicles_player_root, "Break Engine", {}, "Makes their engine catch on fire.", function() break_player_vehicle_engine(pid) end)
@@ -1323,4 +1371,3 @@ util.on_stop(function()
     end
     util.toast("See you later!")
 end)
-
