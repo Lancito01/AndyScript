@@ -548,7 +548,7 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
 )
 
 --Random tuning
-menu.action(vehicles_tab, "/!\\ Tune Vehicle Randomly", {"randomtune"}, "Applies random tuning to your vehicle.", function()
+menu.action(vehicles_tab, "Tune Vehicle Randomly", {"randomtune"}, "Applies random tuning to your vehicle.", function()
     local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
     if vehicle == 0 then util.toast("You are not in a vehicle.") else
         for mod_type = 0, 48 do
@@ -567,7 +567,7 @@ menu.action(vehicles_tab, "/!\\ Tune Vehicle Randomly", {"randomtune"}, "Applies
         menu.trigger_command(menu.ref_by_path("Vehicle>Los Santos Customs>Appearance>Wheels>Wheels Colour", 42), math.random(0,160))
     end
 end)
-menu.toggle_loop(vehicles_tab, "/!\\ Loop Random Tune", {"randomtuneloop"}, "Applies random tuning to your vehicle every 50ms.", function()
+menu.toggle_loop(vehicles_tab, "Loop Random Tune", {"randomtuneloop"}, "Applies random tuning to your vehicle every 50ms.", function()
     local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
     if vehicle ~= 0 then
         for mod_type = 0, 48 do
