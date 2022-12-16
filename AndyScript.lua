@@ -139,7 +139,7 @@ local shortcut_path = AndyScript_store .. "/shortcuts.txt"
 local notif_prefix = "[AndyScript] "
 local og_toast = util.toast
 local og_log = util.log
-util.toast = function(str, flag)
+util.toast = function(str, flag) ---@diagnostic disable-line
     assert(str ~= nil, "No string given")
     if flag ~= nil then
         og_toast(notif_prefix .. tostring(str), flag)
@@ -147,7 +147,7 @@ util.toast = function(str, flag)
         og_toast(notif_prefix .. tostring(str))
     end
 end
-util.log = function(str) 
+util.log = function(str) ---@diagnostic disable-line
     assert(str ~= nil, "No string given.")
     og_log(notif_prefix .. tostring(str))
 end
@@ -226,7 +226,7 @@ local explosion_names = {"Off",
     "BZ Gas",
     "Flare",
     "Gas Canister",
-    "EXtinguisher",
+    "Extinguisher",
     "Programmable AR",
     "Train",
     "Barrel",
@@ -242,7 +242,7 @@ local explosion_names = {"Off",
     "Blimp 2",
     "Firework",
     "Snowball",
-    "Priximity Mine",
+    "Proximity Mine",
     "Valkyrie Cannon",
     "Air Defense",
     "Pipebomb",
@@ -365,7 +365,7 @@ local weapons_in_self_tab = menu.list(self_tab, "Weapons", {}, "", function() en
 --Explosive bullets
 do local current
 local coords = v3.new()
-menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 1, function(index, menu_name, click_type)
+menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 1, function(index)
     current = index - 1
     local explosion_id = current - 1 -- -1 because lua starts indexes at 1, not 0 
     if current ~= 0 then
