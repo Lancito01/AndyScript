@@ -1,5 +1,6 @@
-local script_version = "0.1.4"
+local script_version = "0.1.5"
 
+--#region auto-updater
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
 local wait_for_restart = false
 local please_wait_while_updating_menu = menu.divider(menu.my_root(), "Please wait...")
@@ -126,8 +127,8 @@ while WAITING_FOR_HTTP_RESULT or wait_for_restart do
     util.yield()
 end
 menu.delete(please_wait_while_updating_menu)
-
 -- End of auto-updater
+--#endregion auto-updater
 
 util.require_natives(1663599433)
 util.keep_running()
@@ -157,7 +158,6 @@ local settings_filepath = AndyScript_store.."/settings.txt"
 if not filesystem.exists(settings_filepath) then
     local filehandle = io.open(settings_filepath, "w")
     if filehandle then
-        filehandle:write("hide_name_on_script_startup=false\n")
         filehandle:close()
     end
 end
@@ -168,16 +168,15 @@ local function read_settings_file()
     if filehandle then
         for line_text in filehandle:lines() do ---@diagnostic disable-next-line
             local prefix, suffix = string.partition(line_text, "=")
-            if prefix == "hide_name_on_script_startup" then
-                tbl.hide_name_on_script_startup = suffix == "true"
-            end
+            tbl[prefix] = suffix == "true" -- since the setting is imported as a string ("true" or "false"), the == serves as a logical test to convert it to a boolean
         end
         return tbl
     else
         util.toast("Error reading settings file.")
     end
 end
-local settings = read_settings_file()
+
+local settings = read_settings_file() -- input settings state from file
 
 local user_name = settings.hide_name_on_script_startup and "User" or players.get_name(players.user())
 local possible_welcome_phrases = { -- 12 normal, 1 rare
@@ -277,7 +276,7 @@ local explosion_names = {"Off",
     "Script Missile",
 }
 
-local function saving_settings_to_file()
+local function save_settings_to_file()
     local filehandle = io.open(settings_filepath, "w")
     if filehandle then
         for setting, value in pairs(settings) do
@@ -290,7 +289,7 @@ local function saving_settings_to_file()
 end
 
 local function announce(string)
-    if announce_actions then
+    if settings.announce_actions then
         util.toast(string)
     end
 end
@@ -788,6 +787,23 @@ function(state)
 end)
 -- end of freeze clock
 
+--clear world
+menu.action(world_tab, "Clear World", {"clearworld"}, "Deletes every entity it can find from the face of the earth.", function()
+    for i, entity in pairs(entities.get_all_vehicles_as_handles()) do
+        request_control(entity)
+        entities.delete_by_handle(entity) end
+
+    for i, entity in pairs(entities.get_all_peds_as_handles()) do
+        request_control(entity)
+        entities.delete_by_handle(entity) end
+
+    for i, entity in pairs(entities.get_all_objects_as_handles()) do
+        request_control(entity)
+        entities.delete_by_handle(entity) end
+
+    announce("Cleared world.")
+end)
+
 --Fun tab
 --Ride cow
 local function set_ped_apathy(ped, value)
@@ -825,12 +841,6 @@ menu.toggle(fun_tab, "Ride Cow", {}, "Spawns a fucking cow for some reason, then
 )
 
 --Settings
---Announce actions
-menu.toggle(settings_tab, "Announce Actions", {}, 'Announces every action done by the script, i.e. "Health maxed". This could also be called "Debug mode" (?',
-function(state)
-    announce_actions = state
-end
-)
 
 --Shortcuts
 local shortcuts = {}
@@ -1054,6 +1064,7 @@ function(state)
         add_a_shortcut = 0
         menu.delete(edit_a_shortcut)
         edit_a_shortcut = 0
+        have_shortcuts_been_generated_for_editor = false -- reset editor for next run
     end
     -- Showing shortcuts at trigger
     if shortcut_status then --showing shortcut
@@ -1073,10 +1084,19 @@ function(state)
 end, false
 )
 
-local hide_name_toggle = menu.toggle(settings_tab, "Hide Username On Startup", {}, "Hides your username that would show in the welcome phrase.", function(state, click_type)
+--Announce actions
+menu.toggle(settings_tab, "Announce Actions", {}, 'Announces every action done by the script, i.e. "Health maxed". This could also be called "Debug mode" (?', function(state, click_type)
+    if click_type ~= CLICK_BULK then
+        settings.announce_actions = state
+        save_settings_to_file()
+    end
+end, settings.announce_actions)
+
+-- Hide name on script startup
+menu.toggle(settings_tab, "Hide Username On Startup", {}, "Hides your username that would show in the welcome phrase.", function(state, click_type)
     if click_type ~= CLICK_BULK then
         settings.hide_name_on_script_startup = state
-        saving_settings_to_file()
+        save_settings_to_file()
     end
 end, settings.hide_name_on_script_startup)
 
@@ -1087,7 +1107,6 @@ menu.readonly(info_tab, "Version", script_version)
 menu.hyperlink(info_tab, "AndyScript Discord", "https://discord.gg/9vzATnaM9c", "The one and only official AndyScript Discord server, where you can find the script's changelog, support and a suggestions channel (they are greatly appreciated), and a good community to chat with. :D")
 menu.hyperlink(info_tab, "GitHub", "https://github.com/Lancito01/AndyScript")
 menu.readonly(credits_under_info_tab, "Ren", "For helping me with majority of the code and with stupid questions. <3")
-menu.readonly(credits_under_info_tab, "Gabeeh", "For existing.")
 
 --Player root
 --Check for modder
@@ -1270,7 +1289,7 @@ local function generate_features(pid)
         current_exp_chosen = index - 1
         local explosion_id = current_exp_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
         if current_exp_chosen ~= 0 then
-            while current_exp_chosen + 1 == index do
+            while current_exp_chosen + 1 == index and players.exists(pid) do
                 current_exp_chosen = index - 1
                 if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(PLAYER.GET_PLAYER_PED(pid), coords_exp) then
                     local x, y, z = v3.get(coords_exp)
@@ -1365,7 +1384,7 @@ end)
 --On script end
 util.on_stop(function()
     write_to_shortcut_file(shortcut_path)
-    saving_settings_to_file()
+    save_settings_to_file()
     if #spooned > 0 then
         delete_every_entity_from_spooner()
     end
