@@ -162,6 +162,43 @@ if not filesystem.exists(settings_filepath) then
     end
 end
 
+local playtime_filepath = AndyScript_store.."/playtime.txt"
+if not filesystem.exists(playtime_filepath) then
+    local filehandle = io.open(playtime_filepath, "w")
+    if filehandle then
+        filehandle:write(0)
+        filehandle:close()
+    end
+end
+
+local function read_playtime_file(filepath)
+    local filehandle = io.open(filepath)
+    local time = 0
+    if filehandle then
+        time = filehandle:read("a")
+        filehandle:close()
+        return time
+    else
+        util.toast("Error reading playtime file.")
+    end
+end
+local script_playtime = tonumber(read_playtime_file(playtime_filepath)) -- reading current playtime
+
+util.create_tick_handler(function()
+    script_playtime += 1
+    util.yield(1000)
+end)
+
+local function save_playtime_to_file(playtime)
+    local filehandle = io.open(playtime_filepath, "w")
+    if filehandle then
+        filehandle:write(script_playtime)
+        filehandle:close()
+    else
+        util.toast("Error writing to playtime file.")
+    end
+end
+
 local function read_settings_file()
     local filehandle = io.open(settings_filepath)
     local tbl = {}
@@ -200,7 +237,38 @@ local welcome_phrase = string.format(possible_welcome_phrases[chosen_welcome_phr
 if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript\n\n" .. welcome_phrase) end
 
 --Functions // Defining
-local explosion_names = {"Off",
+local function format_time(time, longer) -- shoutout to ma boy da sussy man
+    local seconds_in_minute = 60
+    local seconds_in_hour = seconds_in_minute * 60
+    local seconds_in_day = seconds_in_hour * 24
+
+    local days = (time // seconds_in_day)
+    local hours = (time % seconds_in_day) // seconds_in_hour
+    local minutes = (time % seconds_in_hour) // seconds_in_minute
+    local seconds = (time % seconds_in_minute)
+
+    local word_days = days == 1 and "day" or "days"
+    local word_hours = hours == 1 and "hour" or "hours"
+    local word_minutes = minutes == 1 and "minute" or "minutes"
+    local word_seconds = seconds == 1 and "second" or "seconds"
+
+    if longer then
+        if time >= seconds_in_day then
+            return string.format("%d %s, %d %s, %d %s, and %d %s", days, word_days, hours, word_hours, minutes, word_minutes, seconds, word_seconds)
+        elseif time >= seconds_in_hour then
+            return string.format("%d %s, %d %s, and %d %s", hours, word_hours, minutes, word_minutes, seconds, word_seconds)
+        elseif time >= seconds_in_minute then
+            return string.format("%d %s and %d %s", minutes, word_minutes, seconds, word_seconds)
+        else
+            return string.format("%d %s", seconds, word_seconds)
+        end
+    end
+
+    return string.format("%.2d"..":".."%.2d"..":".."%.2d"..":".."%.2d", days, hours, minutes, seconds)
+end
+
+local explosion_names = {
+    [0] = "Off",
     "Grenade",
     "Grenade Launcher",
     "Sticky Bomb",
@@ -364,10 +432,10 @@ local weapons_in_self_tab = menu.list(self_tab, "Weapons", {}, "", function() en
 --Explosive bullets
 do local current
 local coords = v3.new()
-menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 1, function(index)
+    menu.list_select(weapons_in_self_tab, "Explosive Ammo", {}, "", explosion_names, 0, function(index)
     current = index - 1
-    local explosion_id = current - 1 -- -1 because lua starts indexes at 1, not 0 
-    if current ~= 0 then
+        local explosion_id = current -- this SHOULD have a -1 because lua starts indexes at 1, not 0 BUT! if you look at the table definition, ma boy the sus man told me how to make it 0 based to my brain can rest easy
+        if current ~= -1 then
         while current + 1 == index do
             current = index - 1
             if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(players.user_ped(), coords) then
@@ -1101,6 +1169,14 @@ menu.toggle(settings_tab, "Hide Username On Startup", {}, "Hides your username t
 end, settings.hide_name_on_script_startup)
 
 -- About tab
+local function make_auto_updating_read_only_command(root_id, menu_title, value_func)
+    local command = menu.readonly(root_id, menu_title, value_func())
+    local handler = menu.on_tick_in_viewport(command, function()
+        menu.set_value(command, value_func())
+    end)
+    return command, handler
+end
+make_auto_updating_read_only_command(info_tab, "Playtime", function() return format_time(script_playtime, true) end)
 local credits_under_info_tab = menu.list(info_tab, "Credits")
 menu.readonly(info_tab, "Made by Andy <3", "Lancito01#0001")
 menu.readonly(info_tab, "Version", script_version)
@@ -1285,10 +1361,10 @@ local function generate_features(pid)
     --Explosive bullets
     local current_exp_chosen
     local coords_exp = v3.new()
-    menu.list_select(weapons_player_root, "Give Explosive Ammo", {}, "", explosion_names, 1, function(index, menu_name, click_type)
+    menu.list_select(weapons_player_root, "Give Explosive Ammo", {}, "", explosion_names, 0, function(index, menu_name, click_type)
         current_exp_chosen = index - 1
-        local explosion_id = current_exp_chosen - 1 -- -1 because lua starts indexes at 1, not 0 
-        if current_exp_chosen ~= 0 then
+        local explosion_id = current_exp_chosen -- this SHOULD have a -1 because lua starts indexes at 1, not 0 BUT! if you look at the table definition, ma boy the sus man told me how to make it 0 based to my brain can rest easy
+        if current_exp_chosen ~= -1 then
             while current_exp_chosen + 1 == index and players.exists(pid) do
                 current_exp_chosen = index - 1
                 if WEAPON.GET_PED_LAST_WEAPON_IMPACT_COORD(PLAYER.GET_PLAYER_PED(pid), coords_exp) then
@@ -1385,6 +1461,7 @@ end)
 util.on_stop(function()
     write_to_shortcut_file(shortcut_path)
     save_settings_to_file()
+    save_playtime_to_file(script_playtime)
     if #spooned > 0 then
         delete_every_entity_from_spooner()
     end
