@@ -1183,6 +1183,7 @@ menu.readonly(info_tab, "Version", script_version)
 menu.hyperlink(info_tab, "AndyScript Discord", "https://discord.gg/9vzATnaM9c", "The one and only official AndyScript Discord server, where you can find the script's changelog, support and a suggestions channel (they are greatly appreciated), and a good community to chat with. :D")
 menu.hyperlink(info_tab, "GitHub", "https://github.com/Lancito01/AndyScript")
 menu.readonly(credits_under_info_tab, "Ren", "For helping me with majority of the code and with stupid questions. <3")
+menu.readonly(credits_under_info_tab, "Gaby", "For existing.")
 
 --Player root
 --Check for modder
