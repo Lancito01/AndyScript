@@ -618,6 +618,7 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
 menu.action(vehicles_tab, "Tune Vehicle Randomly", {"randomtune"}, "Applies random tuning to your vehicle.", function()
     local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
     if vehicle == 0 then util.toast("You are not in a vehicle.") else
+        VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0) -- needed for most modifications through SET_VEHICLE_MOD to take effect
         for mod_type = 0, 48 do
             local num_of_mods = VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, mod_type)
             local random_tune = math.random(-1, num_of_mods - 1)
