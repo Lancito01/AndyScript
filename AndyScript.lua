@@ -1,4 +1,4 @@
-local script_version = "0.1.5"
+local script_version = "0.1.6"
 
 --#region auto-updater
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
@@ -634,9 +634,13 @@ menu.action(vehicles_tab, "Tune Vehicle Randomly", {"randomtune"}, "Applies rand
         menu.trigger_command(menu.ref_by_path("Vehicle>Los Santos Customs>Appearance>Wheels>Wheels Colour", 42), math.random(0,160))
     end
 end)
-menu.toggle_loop(vehicles_tab, "Loop Random Tune", {"randomtuneloop"}, "Applies random tuning to your vehicle every 50ms.", function()
+menu.text_input(vehicles_tab, "Loop Random Tune", {"randomtuneloop"}, "Applies random tuning to your vehicle every \"x\" miliseconds. 0 is equal to off.", function(str)
+    if tonumber(str) then
+        option = tonumber(str)
+        while option ~= 0 do
     local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
     if vehicle ~= 0 then
+        VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0) -- needed for most modifications through SET_VEHICLE_MOD to take effect
         for mod_type = 0, 48 do
             local num_of_mods = VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, mod_type)
             local random_tune = math.random(-1, num_of_mods - 1)
@@ -652,9 +656,12 @@ menu.toggle_loop(vehicles_tab, "Loop Random Tune", {"randomtuneloop"}, "Applies 
         VEHICLE.SET_VEHICLE_NEON_COLOUR(vehicle, math.random(0,255), math.random(0,255), math.random(0,255))
         menu.trigger_command(menu.ref_by_path("Vehicle>Los Santos Customs>Appearance>Wheels>Wheels Colour", 42), math.random(0,160))
     end
-    util.yield(50)
-end)
-
+            util.yield(option)
+        end
+    else
+        util.toast("Please enter a number.")
+    end
+end, "0")
 
 --World tab
 --Change local gravity
