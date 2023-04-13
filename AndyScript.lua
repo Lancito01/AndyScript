@@ -1,4 +1,4 @@
-local script_version = "0.1.6"
+local script_version = "0.1.7"
 
 --#region auto-updater
 -- Auto-Updater by Hexarobi, modified by Ren, tysm to the both of u <3
@@ -72,26 +72,50 @@ local function update_script(url)
 
     local function http_success(result, headers, status_code)
         WAITING_FOR_HTTP_RESULT = false
+
+        -- No update neccessary if true
         if status_code == 304 then
-            -- No update found
-            if not SCRIPT_SILENT_START then toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version) end
+            if not SCRIPT_SILENT_START then
+                toast_formatted("%s is up to date! (%s)", SCRIPT_NAME, script_version)
+            end
+            -- It is safe to return, the script will not do anything (in terms of updating) and will continue as normal
             return
         end
 
+        -- If we've just updated and GitHub did not give us a version ID / cache ID for some reason, ignore replacing the script and move on
+        local temp_version_str = "temp/unknown" -- do not delete this, it is used for a check a little further down other than the next line
+        if read_version_id(VERSION_PATH) == temp_version_str then
+            write_version_id(VERSION_PATH, "")
+            -- It is now safe to resume normal script operation
+            return
+        end
+
+
+        -- Otherwise, if GitHub sends out a empty result/data, continue as normal. Something may have broke on GitHub's end.
         if not result or result == "" then
             toast_formatted("Error updating %s. Found empty script file.", SCRIPT_NAME)
             return
         end
 
-        replace_current_script(result)
-
+        -- If GitHub has sent us the version ID / cache ID, then store it (so we can verify if we should update in the future), 
+        -- else store something temporary so that when the script restarts right after, it knows not to keep restarting and updating
+        local saved_version_id = false
         if headers then
             for header_key, header_value in pairs(headers) do
-                if header_key == "ETag" then
+                if header_key:lower() == "etag" then --? header_key:lower() is the same as string.lower(header_key)
                     write_version_id(VERSION_PATH, header_value)
+                    saved_version_id = true
                 end
             end
         end
+
+        if not saved_version_id then
+            write_version_id(VERSION_PATH, temp_version_str)
+            --toast("Was not able to write the version ID to file. This may cause the script to update upon relaunch.")
+        end
+
+        -- We have done our safety checks, it is safe to replace the script.
+        replace_current_script(result) -- this writes the result (the file contents) to the current script path.
 
         toast_formatted("Updated %s. Restarting...", SCRIPT_NAME)
         wait_for_restart = true
@@ -118,8 +142,8 @@ local function update_script(url)
     end
 
     async_http.init(url_host, url_path, http_success, http_fail)
-    http_add_cache_header_if_cached()
-    async_http.dispatch()
+    http_add_cache_header_if_cached() --* if applicable, adds header to http before it is dispatched
+    async_http.dispatch() --* sends out the http request and does either http_success or http_fail
 end
 
 update_script("https://raw.githubusercontent.com/Lancito01/AndyScript/main/AndyScript.lua")
@@ -134,10 +158,10 @@ util.require_natives(1663599433)
 util.keep_running()
 
 local store = filesystem.store_dir()
-local AndyScript_store = store .. "/AndyScript"
+local AndyScript_store = store .. "/" ..SCRIPT_NAME
 local shortcut_path = AndyScript_store .. "/shortcuts.txt"
 
-local notif_prefix = "[AndyScript] "
+local notif_prefix = format("[%s] ", SCRIPT_NAME)
 local og_toast = util.toast
 local og_log = util.log
 util.toast = function(str, flag) ---@diagnostic disable-line
@@ -192,7 +216,7 @@ end)
 local function save_playtime_to_file(playtime)
     local filehandle = io.open(playtime_filepath, "w")
     if filehandle then
-        filehandle:write(script_playtime)
+        filehandle:write(playtime)
         filehandle:close()
     else
         util.toast("Error writing to playtime file.")
@@ -234,7 +258,7 @@ local possible_welcome_phrases = { -- 12 normal, 1 rare
 
 local chosen_welcome_phrase_index = math.random(1,100) == 1 and #possible_welcome_phrases or math.random(#possible_welcome_phrases - 1)
 local welcome_phrase = string.format(possible_welcome_phrases[chosen_welcome_phrase_index], user_name)
-if not SCRIPT_SILENT_START then util.toast("Loaded AndyScript\n\n" .. welcome_phrase) end
+if not SCRIPT_SILENT_START then toast_formatted("Loaded %s\n\n%s", SCRIPT_NAME, welcome_phrase) end
 
 --Functions // Defining
 local function format_time(time, longer) -- shoutout to ma boy da sussy man
@@ -458,7 +482,7 @@ function(state)
     menu.trigger_command(menu.ref_by_path("Self>Auto Heal", 38), switch_for_godmode)
     menu.trigger_command(menu.ref_by_path("Vehicle>Indestructible", 38), switch_for_godmode)
     menu.trigger_command(menu.ref_by_path("Self>Glued To Seats", 38), switch_for_godmode)
-    menu.trigger_command(menu.ref_by_path("Stand>Lua Scripts>AndyScript>Self>Clean Loop",38), switch_for_godmode)
+    menu.trigger_command(menu.ref_by_path(format("Stand>Lua Scripts>%s>Self>Clean Loop",38), SCRIPT_NAME), switch_for_godmode)
     announce("Godmode " .. switch_for_godmode)
 end
 )
@@ -554,7 +578,7 @@ end
 
 --Vehicles tab
 --Include last vehicle
-menu.toggle(vehicles_tab, "Include Last Vehicle For Vehicle Functions", {}, "Option to include last vehicle if you're not in a vehicle at the time of running a function.", function(state) include_last_vehicle_for_vehicle_functions = state end)
+menu.toggle(vehicles_tab, "Include Last Vehicle For Vehicle Functions", {}, "Option to include last vehicle if you're not in a vehicle at the time of running a function.", function(state) Include_last_vehicle_for_vehicle_functions = state end)
 
 --Options divider
 menu.divider(vehicles_tab, "Options")
@@ -602,7 +626,7 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
         if type(input) == "nil" then
             util.toast("Input must be a number. Try again!")
         else
-            local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
+            local vehicle = get_vehicle_ped_is_in(players.user_ped(), Include_last_vehicle_for_vehicle_functions)
             if vehicle == 0 then
                 util.toast("Get in a car first.")
             else
@@ -616,7 +640,7 @@ menu.text_input(vehicles_tab, "Alter Vehicle's Acceleration", {"vehiclespeed"}, 
 
 --Random tuning
 menu.action(vehicles_tab, "Tune Vehicle Randomly", {"randomtune"}, "Applies random tuning to your vehicle.", function()
-    local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
+    local vehicle = get_vehicle_ped_is_in(players.user_ped(), Include_last_vehicle_for_vehicle_functions)
     if vehicle == 0 then util.toast("You are not in a vehicle.") else
         VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0) -- needed for most modifications through SET_VEHICLE_MOD to take effect
         for mod_type = 0, 48 do
@@ -637,9 +661,9 @@ menu.action(vehicles_tab, "Tune Vehicle Randomly", {"randomtune"}, "Applies rand
 end)
 menu.text_input(vehicles_tab, "Loop Random Tune", {"randomtuneloop"}, "Applies random tuning to your vehicle every \"x\" miliseconds. 0 is equal to off.", function(str)
     if tonumber(str) then
-        option = tonumber(str)
-        while option ~= 0 do
-    local vehicle = get_vehicle_ped_is_in(players.user_ped(), include_last_vehicle_for_vehicle_functions)
+        Option = tonumber(str)
+        while Option ~= 0 do
+            local vehicle = get_vehicle_ped_is_in(players.user_ped(), Include_last_vehicle_for_vehicle_functions)
     if vehicle ~= 0 then
         VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0) -- needed for most modifications through SET_VEHICLE_MOD to take effect
         for mod_type = 0, 48 do
@@ -657,7 +681,7 @@ menu.text_input(vehicles_tab, "Loop Random Tune", {"randomtuneloop"}, "Applies r
         VEHICLE.SET_VEHICLE_NEON_COLOUR(vehicle, math.random(0,255), math.random(0,255), math.random(0,255))
         menu.trigger_command(menu.ref_by_path("Vehicle>Los Santos Customs>Appearance>Wheels>Wheels Colour", 42), math.random(0,160))
     end
-            util.yield(option)
+            util.yield(Option)
         end
     else
         util.toast("Please enter a number.")
@@ -830,17 +854,17 @@ local function read_time(file_path)
 end
 
 local function save_current_time(file_path, time)
-    filehandle = io.open(file_path, "w")
-    filehandle:write(time)
-    filehandle:flush()
-    filehandle:close()
+    Filehandle = io.open(file_path, "w")
+    Filehandle:write(time)
+    Filehandle:flush()
+    Filehandle:close()
 end
 
 local function get_clock()
     return tostring(CLOCK.GET_CLOCK_HOURS() .. ":" .. CLOCK.GET_CLOCK_MINUTES() .. ":".. CLOCK.GET_CLOCK_SECONDS())
 end
 
-local time_path = filesystem.store_dir() .. "AndyScript\\time.txt"
+local time_path = filesystem.store_dir() .. format("%s\\time.txt", SCRIPT_NAME)
 local is_freeze_clock_on = false
 menu.toggle(world_tab, "Consistent Freeze Clock", {}, "Freezes the clock using Stand's function, then saves the time for next execution. Change the current time using the \"time\" command, or in \"World > Atmosphere > Clock > Time\".",
 function(state)
@@ -893,25 +917,25 @@ menu.toggle(fun_tab, "Ride Cow", {}, "Spawns a fucking cow for some reason, then
         local player_coords = ENTITY.GET_ENTITY_COORDS(players.user_ped())
         if state then
             request_model(util.joaat("TRACTOR")) -- util.joaat("TRACTOR") == 1641462412 (tractor hash)
-            vehicle_for_cow_rider = VEHICLE.CREATE_VEHICLE(util.joaat("TRACTOR"), player_coords.x, player_coords.y, player_coords.z, player_heading, true, true, false)
+            Vehicle_for_cow_rider = VEHICLE.CREATE_VEHICLE(util.joaat("TRACTOR"), player_coords.x, player_coords.y, player_coords.z, player_heading, true, true, false)
             request_model(util.joaat("A_C_Cow")) -- util.joaat("A_C_Cow") == 4244282910 (cow hash)
-            ENTITY.SET_ENTITY_VISIBLE(vehicle_for_cow_rider, false, 0)
-            PED.SET_PED_INTO_VEHICLE(players.user_ped(), vehicle_for_cow_rider, -1)
-            cow_for_cow_rider = PED.CREATE_PED(29, 4244282910, player_coords.x, player_coords.y, player_coords.z, player_heading, true, true)
-            local bone = PED.GET_PED_BONE_INDEX(cow_for_cow_rider, 0x796e)
-            ENTITY.ATTACH_ENTITY_TO_ENTITY(cow_for_cow_rider, vehicle_for_cow_rider, bone, 0, -1, 0.5, 0, 0, 0, true, false, false, false, 1, false, false)
-            ENTITY.SET_ENTITY_INVINCIBLE(vehicle_for_cow_rider, true)
-            set_ped_apathy(cow_for_cow_rider, true)
+            ENTITY.SET_ENTITY_VISIBLE(Vehicle_for_cow_rider, false, 0)
+            PED.SET_PED_INTO_VEHICLE(players.user_ped(), Vehicle_for_cow_rider, -1)
+            Cow_for_cow_rider = PED.CREATE_PED(29, 4244282910, player_coords.x, player_coords.y, player_coords.z, player_heading, true, true)
+            local bone = PED.GET_PED_BONE_INDEX(Cow_for_cow_rider, 0x796e)
+            ENTITY.ATTACH_ENTITY_TO_ENTITY(Cow_for_cow_rider, Vehicle_for_cow_rider, bone, 0, -1, 0.5, 0, 0, 0, true, false, false, false, 1, false, false)
+            ENTITY.SET_ENTITY_INVINCIBLE(Vehicle_for_cow_rider, true)
+            set_ped_apathy(Cow_for_cow_rider, true)
             if not menu.get_value(menu.ref_by_path("Self>Glued To Seats")) then
                 menu.trigger_command(menu.ref_by_path("Self>Glued To Seats", 38), "on")
-                altered_seatbelt_state = true
+                Altered_seatbelt_state = true
             end
         else
-            if altered_seatbelt_state then
+            if Altered_seatbelt_state then
                 menu.trigger_command(menu.ref_by_path("Self>Glued To Seats", 38), "off")
             end
-            entities.delete_by_handle(vehicle_for_cow_rider)
-            entities.delete_by_handle(cow_for_cow_rider)
+            entities.delete_by_handle(Vehicle_for_cow_rider)
+            entities.delete_by_handle(Cow_for_cow_rider)
         end
     end
 )
@@ -951,7 +975,7 @@ end
 
 local function delete_shortcut(shortcut, is_editing)
     local function where_is_shortcut_to_delete(input)
-        c = 1
+        local c = 1
         for k, v in shortcuts do
             if v[2] == input then
                 return c
@@ -975,7 +999,7 @@ local function delete_shortcut(shortcut, is_editing)
                 util.toast("Shortcut not found.")
             end
         else
-            util.toast("Shortcut doens't exist.")
+            util.toast("Shortcut doesn't exist.")
         end
     else
         util.toast("There are no shortcuts. Try creating one before deleting!")
@@ -1096,27 +1120,60 @@ local edit_a_shortcut
 --toggle on or off
 menu.toggle(shortcut_menu, "Enable", {"andyshortcuts"}, "Enable \"Andy's Shortcuts\", which are command box shortcuts such as using \"dv\" instead of \"deletevehicle\".",
 function(state)
-    shortcut_status = state
+    Shortcut_status = state
     if not have_shortcuts_been_enabled then
         read_shortcut_file(shortcut_path)
         have_shortcuts_been_enabled = true
     end
     --To hide the buttons before you enable it
-    if shortcut_status then
+    if Shortcut_status then
         add_a_shortcut = menu.list(shortcut_menu, "Add A Shortcut", {}, "Allows you to add custom shortcuts.")
         edit_a_shortcut = menu.list(shortcut_menu, "Edit/Remove Shortcuts", {}, "Allows you to edit previously created shortcuts.", function() if not have_shortcuts_been_generated_for_editor then generate_editor_features(edit_a_shortcut) end have_shortcuts_been_generated_for_editor = true end)
         --maker
-        --[[Maker title]] menu.divider(add_a_shortcut, "Fill these in:")
-        local new_shortcut_title = menu.text_input(add_a_shortcut, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
-        local new_shortcut_shortcut = menu.text_input(add_a_shortcut, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command(s) you want to shorten.", function() end)
-        local new_shortcut_command_temp = menu.text_input(add_a_shortcut, "Command", {"customshortcutcommand"}, "Original command(s) that you want to shorten. Use \",\" to separate multiple commands.", function() end)
-        --[[Maker button title]] menu.divider(add_a_shortcut, "Once you're done, press this:")
-        --[[Maker button]] menu.action(add_a_shortcut, "Create", {}, "Creates the custom shortcut with the given specifications.",
+        local normal_create = menu.list(add_a_shortcut, "Normal Mode", {}, "Uses the normal mode to create a shortcut. Recommended for beginners.")
+        local advanced_create = menu.list(add_a_shortcut, "Advanced Mode (Faster)", {}, "Create the shortcut using a single command. Not recommended if you're not too sure of what you're doing.")
+        menu.text_input(advanced_create, "Create Shortcut", {"shortcutadvancedmode"}, "Create a command using the advanced mode. Use \",\" to separate the \"input\" commands (if more than one) that the shortcut will trigger, and use \"&\" to separate the parameters. The parameters are Title, Shortcut and Command(s).",
+        function(str)
+            local parameters = string.split(str, "&") ---@diagnostic disable-line
+            if #parameters ~= 3 then
+                util.toast("The command needs exactly 3 parameters. Please try again.")
+            else
+                local title = parameters[1]
+                local shortcut = parameters[2]
+                local command = parameters[3]
+                local command_new = convert_shortcuts(command)
+                if not does_shortcut_command_exist(command_new) then
+                    if not string.find(command_new, ";") then -- just a single command
+                        util.toast("Error creating shortcut. Does the given command exist?")
+                    else -- multiple commands
+                        util.toast("Error creating shortcut. Do the given commands exist?")
+                    end
+                elseif parameters[1] == "" then
+                    util.toast("Error creating shortcut. Does it have a name?")
+                elseif is_shortcut_name_taken(title) then
+                    util.toast("Shortcut name is taken. Try again!")
+                elseif is_shortcut_taken(command_new) then
+                    util.toast("Shortcut is taken. Try again!")
+                else
+                    create_shortcut(title, shortcut, command_new)
+                    util.toast('New shortcut "' .. parameters[1] .. '" created!')
+                    edit_a_shortcut:delete()
+                    have_shortcuts_been_generated_for_editor = false
+                    --[[everything editor-related]] edit_a_shortcut = menu.attach_after(add_a_shortcut, menu.list(menu.shadow_root() --[[shadow root  is used to create a "detached command" which can then be used in attach_after. more in stand lua api]], "Edit/Remove Shortcuts", {}, "Allows you to edit previously created shortcuts.", function() if not have_shortcuts_been_generated_for_editor then generate_editor_features(edit_a_shortcut) have_shortcuts_been_generated_for_editor = true end end))
+                end
+            end
+        end)
+        --[[Maker title]] menu.divider(normal_create, "Fill these in:")
+        local new_shortcut_title = menu.text_input(normal_create, "Title", {"customshortcuttitle"}, "Title to identify custom shortcut.", function() end)
+        local new_shortcut_shortcut = menu.text_input(normal_create, "Shortcut", {"customshortcut"}, "Command that, when typed into the command box, will trigger the original command(s) you want to shorten.", function() end)
+        local new_shortcut_command_temp = menu.text_input(normal_create, "Command", {"customshortcutcommand"}, "Original command(s) that you want to shorten. Use \",\" to separate multiple commands.", function() end)
+        --[[Maker button title]] menu.divider(normal_create, "Once you're done, press this:")
+        --[[Maker button]] menu.action(normal_create, "Create", {}, "Creates the custom shortcut with the given specifications.",
         function()
-            new_shortcut_temp = menu.get_value(new_shortcut_command_temp)
-            new_shortcut_command = convert_shortcuts(new_shortcut_temp)
-            if not does_shortcut_command_exist(new_shortcut_command) then
-                if not string.find(new_shortcut_command, ";") then -- just a single command
+            New_shortcut_temp = menu.get_value(new_shortcut_command_temp)
+            Command_new = convert_shortcuts(New_shortcut_temp)
+            if not does_shortcut_command_exist(Command_new) then
+                if not string.find(Command_new, ";") then -- just a single command
                     util.toast("Error creating shortcut. Does the given command exist?")
                 else -- multiple commands
                     util.toast("Error creating shortcut. Do the given commands exist?")
@@ -1128,7 +1185,7 @@ function(state)
             elseif is_shortcut_taken(menu.get_value(new_shortcut_shortcut)) then
                 util.toast("Shortcut is taken. Try again!")
             else
-                create_shortcut(menu.get_value(new_shortcut_title), menu.get_value(new_shortcut_shortcut), new_shortcut_command)
+                create_shortcut(menu.get_value(new_shortcut_title), menu.get_value(new_shortcut_shortcut), Command_new)
                 util.toast('New shortcut "' .. menu.get_value(new_shortcut_title) .. '" created!')
                 edit_a_shortcut:delete()
                 have_shortcuts_been_generated_for_editor = false
@@ -1143,14 +1200,14 @@ function(state)
         have_shortcuts_been_generated_for_editor = false -- reset editor for next run
     end
     -- Showing shortcuts at trigger
-    if shortcut_status then --showing shortcut
-        shortcut_title = menu.divider(shortcut_menu, "Available Shortcuts")
+    if Shortcut_status then --showing shortcut
+        Shortcut_title = menu.divider(shortcut_menu, "Available Shortcuts")
     else --deleting
-        menu.delete(shortcut_title)
-        shortcut_title = 0
+        menu.delete(Shortcut_title)
+        Shortcut_title = 0
     end
     for k, v in ipairs(shortcuts) do -- creating existing shortcuts in the table "shortcuts"
-        if shortcut_status then
+        if Shortcut_status then
             v[1] = create_shortcut_commands(v[3], v[2], v[4]) --Restore shortcuts
         else
             menu.delete(v[1])
@@ -1250,7 +1307,7 @@ end
 
 local function repair_player_vehicle(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1265,7 +1322,7 @@ end
 
 local function toggle_player_vehicle_engine(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1281,7 +1338,7 @@ end
 
 local function break_player_vehicle_engine(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1296,7 +1353,7 @@ end
 
 local function launch_up_player_vehicle(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1311,7 +1368,7 @@ end
 
 local function boost_player_vehicle_forward(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1323,7 +1380,7 @@ end
 
 local function stop_player_vehicle(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1335,7 +1392,7 @@ end
 
 local function flip_player_vehicle(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1348,7 +1405,7 @@ end
 
 local function turn_player_vehicle(pid)
     local player_ped = PLAYER.GET_PLAYER_PED(pid)
-    local player_vehicle = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions)
+    local player_vehicle = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions)
     if player_vehicle == 0 then
         util.toast(players.get_name(pid) .. " is not in any vehicle.")
     else
@@ -1361,12 +1418,11 @@ local function turn_player_vehicle(pid)
 end
 
 local function generate_features(pid)
-    menu.divider(menu.player_root(pid), "AndyScript")
+    menu.divider(menu.player_root(pid), SCRIPT_NAME)
 
     local weapons_player_root = menu.list(menu.player_root(pid), "Weapons")
     local vehicles_player_root = menu.list(menu.player_root(pid), "Vehicles")
     local online_player_root = menu.list(menu.player_root(pid), "Online")
-
     --Explosive bullets
     local current_exp_chosen
     local coords_exp = v3.new()
@@ -1386,12 +1442,12 @@ local function generate_features(pid)
             announce("Explosive Ammo for "..players.get_name(pid).." off.")
         end
     end)
-    menu.toggle(vehicles_player_root, "Include Player's Last Vehicle", {}, "Option to use last vehicle in case the player is not in a vehicle when running a function.", function(state) include_last_vehicle_for_player_functions = state end)
+    menu.toggle(vehicles_player_root, "Include Player's Last Vehicle", {}, "Option to use last vehicle in case the player is not in a vehicle when running a function.", function(state) Include_last_vehicle_for_player_functions = state end)
     menu.divider(vehicles_player_root, "Options")
     menu.action_slider(vehicles_player_root, "Clone Ped Inside Their Car", {}, "Clones the player's ped and places it in the first free seat it finds.", {"Once", "Fill vehicle"},
         function(index)
             local player_ped = PLAYER.GET_PLAYER_PED(pid)
-            local car = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions) -- alternatively: local car = use_last_vehicle_toggle and PED.GET_VEHICLE_PED_IS_IN(ped) or get_vehicle_ped_is_in(pid, false)        
+            local car = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions) -- alternatively: local car = use_last_vehicle_toggle and PED.GET_VEHICLE_PED_IS_IN(ped) or get_vehicle_ped_is_in(pid, false)        
             if index == 1 then
                 spawn_ped_in_vehicle(car, player_ped, true)
             elseif index == 2 then
@@ -1401,7 +1457,7 @@ local function generate_features(pid)
         menu.action_slider(vehicles_player_root, "Spawn Random Ped Inside Their Car", {}, "Spawns a random ped from our (not very) extensive list and places it on the first available seat it finds.", {"Once", "Fill vehicle"},
         function(index)
             local player_ped = PLAYER.GET_PLAYER_PED(pid)
-            local car = get_vehicle_ped_is_in(player_ped, include_last_vehicle_for_player_functions) -- alternatively: local car = use_last_vehicle_toggle and PED.GET_VEHICLE_PED_IS_IN(ped) or get_vehicle_ped_is_in(pid, false)        
+            local car = get_vehicle_ped_is_in(player_ped, Include_last_vehicle_for_player_functions) -- alternatively: local car = use_last_vehicle_toggle and PED.GET_VEHICLE_PED_IS_IN(ped) or get_vehicle_ped_is_in(pid, false)        
             if index == 1 then
                 spawn_ped_in_vehicle(car, player_ped, false)
             elseif index == 2 then
@@ -1476,3 +1532,4 @@ util.on_stop(function()
     end
     util.toast("See you later!")
 end)
+
