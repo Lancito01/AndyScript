@@ -1,5 +1,5 @@
 # AndyScript
-AndyScript for Stand GTA V mod menu
+AndyScript, the best Lua script for the Stand GTA V mod menu
 
 Join the [Discord](https://discord.gg/9vzATnaM9c)!
 
