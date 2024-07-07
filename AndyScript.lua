@@ -161,7 +161,7 @@ menu.delete(please_wait_while_updating_menu)
 -- End of auto-updater
 --#endregion auto-updater
 
-util.require_natives(1663599433)
+util.require_natives("3095a")
 util.keep_running()
 
 local store = filesystem.store_dir()
