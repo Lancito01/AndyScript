@@ -963,7 +963,7 @@ menu.toggle_loop(world_tab, "Chaos", {},
     "Makes nearby cars go goblin-goblin mode. Can be really annoying/broken for other players (takes control of everything). Recommended to use only around friends to not ruin anyone elses fun. :)",
     function()
         for i, veh in ipairs(entities.get_all_vehicles_as_handles()) do
-            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(veh)
+            request_control(veh)
             ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(veh, 1, 0.0, 10.0, 0.0, true, true, true, true) --[[ alternatively, ]] --VEHICLE.SET_VEHICLE_FORWARD_SPEED(...) -- not tested
         end
     end
@@ -1099,6 +1099,7 @@ local function entity_spooner(input)
     end
 end
 
+menu.hyperlink(spooner_main_list, "Objects database", "https://gta-objects.xyz/objects")
 local input_model_ref = menu.text_input(spooner_main_list, "Enter A Model Name", { "spawnentity" },
     "Given a model name, spawns the proper entity.",
     function(input, click_type)
@@ -1908,4 +1909,3 @@ util.on_stop(function()
     end
     util.toast("See you later!")
 end)
-
