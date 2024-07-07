@@ -838,12 +838,9 @@ measuring_speed_list:action("Reset Top Speed", { "resettopspeedcalc" }, "Resets 
 end)
 
 -- Acceleration
-local speed = 0
-local last_speed = 0
-local time_to_acceleration = 0
+local speed, last_speed, time_to_acceleration = 0, 0, 0
 local starting_acceleration_point = { x = 0, y = 0, z = 0, init = false }
-local eighth_mile = false
-local quarter_mile = false
+local eighth_mile, quarter_mile, first, second = false, false, false, false
 measuring_speed_list:divider("Acceleration")
 measuring_speed_list:toggle_loop("Measure Acceleration", { "measureacceleration" },
     "Measures your acceleration depending on the selected unit.", function()
@@ -858,12 +855,11 @@ measuring_speed_list:toggle_loop("Measure Acceleration", { "measureacceleration"
             starting_acceleration_point = { x = coords.x, y = coords.y, z = coords.z, init = true }
         end
         local coords = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), true)
-        local distance = MISC.GET_DISTANCE_BETWEEN_COORDS(starting_acceleration_point.x, starting_acceleration_point.y,
-            starting_acceleration_point.z, coords.x, coords.y, coords.z, true)
+        local distance = v3.distance(v3.new(starting_acceleration_point), v3.new(coords))
         if distance >= 201.168 and not eighth_mile then
             eighth_mile = true
             local result_time = os.clock() - time_to_acceleration
-            local text = "Eighth mile: " .. result_time .. " seconds."
+            local text = "Eighth mile: " .. string.format("%.3f", result_time) .. " seconds."
             if send_speed_results_in_chat then
                 chat.send_message(text, true, true, true)
             end
@@ -872,41 +868,45 @@ measuring_speed_list:toggle_loop("Measure Acceleration", { "measureacceleration"
         if distance >= 402.336 and not quarter_mile then
             quarter_mile = true
             local result_time = os.clock() - time_to_acceleration
-            local text = "Quarter mile: " .. result_time .. " seconds."
+            local text = "Quarter mile: " .. string.format("%.3f", result_time) .. " seconds."
             if send_speed_results_in_chat then
                 chat.send_message(text, true, true, true)
             end
             util.toast(text)
         end
         if unit == "km/h" then
-            if convert_speed(speed) >= 50 and convert_speed(last_speed) < 50 then
+            if convert_speed(speed) >= 50 and convert_speed(last_speed) < 50 and not first then
+                first = true
                 local result_time = os.clock() - time_to_acceleration
-                local text = "0-50 KM/H: " .. result_time .. " seconds."
+                local text = "0-50 KM/H: " .. string.format("%.3f", result_time) .. " seconds."
                 if send_speed_results_in_chat then
                     chat.send_message(text, true, true, true)
                 end
                 util.toast(text)
             end
-            if convert_speed(speed) >= 100 and convert_speed(last_speed) < 100 then
+            if convert_speed(speed) >= 100 and convert_speed(last_speed) < 100 and not second then
+                second = true
                 local result_time = os.clock() - time_to_acceleration
-                local text = "0-100 KM/H: " .. result_time .. " seconds."
+                local text = "0-100 KM/H: " .. string.format("%.3f", result_time) .. " seconds."
                 if send_speed_results_in_chat then
                     chat.send_message(text, true, true, true)
                 end
                 util.toast(text)
             end
         elseif unit == "mph" then
-            if convert_speed(speed) >= 30 and convert_speed(last_speed) < 30 then
+            if convert_speed(speed) >= 30 and convert_speed(last_speed) < 30 and not first then
+                first = true
                 local result_time = os.clock() - time_to_acceleration
-                local text = "0-30 MPH: " .. result_time .. " seconds."
+                local text = "0-30 MPH: " .. string.format("%.3f", result_time) .. " seconds."
                 if send_speed_results_in_chat then
                     chat.send_message(text, true, true, true)
                 end
                 util.toast(text)
             end
-            if convert_speed(speed) >= 60 and convert_speed(last_speed) < 60 then
+            if convert_speed(speed) >= 60 and convert_speed(last_speed) < 60 and not second then
+                second = true
                 local result_time = os.clock() - time_to_acceleration
-                local text = "0-60 MPH: " .. result_time .. " seconds."
+                local text = "0-60 MPH: " .. string.format("%.3f", result_time) .. " seconds."
                 if send_speed_results_in_chat then
                     chat.send_message(text, true, true, true)
                 end
@@ -915,12 +915,15 @@ measuring_speed_list:toggle_loop("Measure Acceleration", { "measureacceleration"
         end
         last_speed = speed
     end, function()
-        speed = 0
-        last_speed = 0
-        time_to_acceleration = 0
-        starting_acceleration_point.init = false
-        eighth_mile = false
-        quarter_mile = false
+        speed, last_speed, time_to_acceleration, eighth_mile, quarter_mile, starting_acceleration_point, first, second =
+            0, 0,
+            0,
+            false, false, { x = 0, y = 0, z = 0, init = false }, false, false --? restarting all 8 values
+    end)
+measuring_speed_list:action("Reset Acceleration Values", {}, "", function()
+    speed, last_speed, time_to_acceleration, eighth_mile, quarter_mile, starting_acceleration_point, first, second = 0, 0,
+        0,
+        false, false, { x = 0, y = 0, z = 0, init = false }, false, false --? restarting all 8 values
     end)
 
 --World tab
@@ -1909,3 +1912,4 @@ util.on_stop(function()
     end
     util.toast("See you later!")
 end)
+
